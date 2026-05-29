@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no">
+    <title>Ôn tập</title>
+
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0A0A0A">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('sw.js').then(function(registration) {
+                    console.log('PWA đã sẵn sàng!');
+                    
+                    // [BÚA TẠ]: Ép trình duyệt đi hỏi Github xem có bản mới không mỗi lần mở web!
+                    registration.update();
+                    
+                    // Radar phát hiện bản cập nhật mới
+                    registration.addEventListener('updatefound', () => {
+                        const newWorker = registration.installing;
+                        newWorker.addEventListener('statechange', () => {
+                            if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                document.getElementById('update-toast').style.display = 'block';
+                            }
+                        });
+                    });
+                }).catch(function(err) {
+                    console.log('Lỗi PWA: ', err);
+                });
+            });
+        }
+    </script>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>   
+    <script>
+        window.MathJax = { tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']], packages: {'[+]': ['ams']} } };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
+    <script src="https://cdn.jsdelivr.net/npm/markmap-lib"></script>
+    <script src="https://cdn.jsdelivr.net/npm/markmap-view"></script>
+</head>
+<body>
+
+<div id="app-dashboard" class="dashboard-layout">
+    <aside class="sidebar" id="app-sidebar">
+        <div class="sidebar-header" style="margin-bottom: 40px; display: flex; align-items: center; overflow: hidden; white-space: nowrap;">
+            <div style="font-size: 32px; margin-right: 10px; min-width: 40px; text-align: center;">🎓</div> 
+            <h2 class="menu-text" style="margin: 0; font-size: 20px;">Study Space</h2>
+        </div>
+        
+        <nav class="sidebar-menu" style="display: flex; flex-direction: column; gap: 10px;">
+            <button class="btn btn-secondary sidebar-btn" onclick="goHome()">
+                <div class="icon-box"><i class="ph-duotone ph-house"></i></div> <span class="menu-text">Trang chủ Môn Học</span>
+            </button>
+            <button class="btn btn-secondary sidebar-btn" onclick="openDocManage()">
+                <div class="icon-box"><i class="ph-duotone ph-books"></i></div> <span class="menu-text">Kho Tài Liệu PDF</span>
+            </button>
+            <button class="btn btn-secondary sidebar-btn teacher-only" onclick="openVocabManage()">
+                <div class="icon-box"><i class="ph-duotone ph-database"></i></div> <span class="menu-text">Quản lý Từ vựng</span>
+            </button>
+            <button class="btn btn-secondary sidebar-btn" onclick="openVocabGame()">
+                <div class="icon-box"><i class="ph-duotone ph-game-controller"></i></div> <span class="menu-text">Game Từ vựng</span>
+            </button>
+            <button class="btn btn-secondary sidebar-btn" onclick="openFocusSpace()">
+                <div class="icon-box"><i class="ph-duotone ph-timer"></i></div> <span class="menu-text">Góc Tập Trung</span>
+            </button>
+            <button class="btn btn-secondary sidebar-btn" onclick="mm_openMindmap()">
+                <div class="icon-box"><i class="ph-duotone ph-git-branch"></i></div> <span class="menu-text">Sơ Đồ Tư Duy AI</span>
+            </button>
+        </nav>
+
+        <div class="sidebar-footer" style="margin-top: auto; display: flex; flex-direction: column; gap: 10px;">
+            <button class="btn btn-secondary sidebar-btn" onclick="logout()" style="border: 1px solid rgba(239, 68, 68, 0.3) !important; background: rgba(239, 68, 68, 0.05) !important;">
+                <div class="icon-box logout-icon" style="color: var(--danger);"><i class="ph-duotone ph-sign-out"></i></div> 
+                <span class="menu-text" style="color: var(--danger);">Đăng xuất</span>
+            </button>
+            <button class="btn btn-secondary sidebar-btn teacher-only" onclick="syncToCloud()">
+                <div class="icon-box sync-icon"><i class="ph-duotone ph-cloud-arrow-up"></i></div> <span class="menu-text">Phát sóng Cloud</span>
+            </button>
+            <div class="menu-text teacher-only" style="display: flex; gap: 10px;">
+                <button class="btn btn-secondary" style="flex: 1; padding: 10px; border-radius: 12px; font-size: 20px;" onclick="exportData()" title="Xuất dữ liệu"><i class="ph-duotone ph-download-simple"></i></button>
+                <label class="btn btn-secondary" style="flex: 1; padding: 10px; border-radius: 12px; font-size: 20px; cursor: pointer; text-align: center; margin: 0;" title="Nhập dữ liệu"><i class="ph-duotone ph-upload-simple"></i><input type="file" accept=".json" style="display: none;" onchange="importData(event)"></label>
+            </div>
+        </div>
+    </aside>
+
+    <main class="main-content">
+        <header class="topbar" style="display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; align-items: center; gap: 15px;">
+                <button class="btn btn-secondary" onclick="toggleSidebar()" style="padding: 8px; border-radius: 12px; width: 40px; height: 40px; display: flex; justify-content: center; align-items: center;" title="Thu gọn/Phóng to Menu">
+                    <i class="ph-duotone ph-list" style="font-size: 24px;"></i>
+                </button>
+                <h1 id="app-title" style="font-size: 24px; margin: 0;">Trang chủ</h1>
+            </div>
+            <div class="topbar-right" style="display: flex; align-items: center; gap: 20px;">
+                <button id="theme-btn" onclick="toggleTheme()" class="btn btn-secondary" style="padding: 10px; border-radius: 50%; width: 45px; height: 45px;">☀️</button>
+                <div class="user-profile" style="display: flex; align-items: center; gap: 12px; background: rgba(0,0,0,0.1); padding: 8px 15px; border-radius: var(--radius-btn); border: 1px solid var(--border-color); cursor: pointer;" onclick="toggleRole()" title="Bấm để đổi vai trò">
+                    
+                    <div class="user-info" style="display: flex; flex-direction: column; text-align: right; max-width: 140px;">
+                        <span id="role-badge" class="role-badge teacher" style="margin-left: auto; margin-bottom: 2px;">👩‍🏫 Giáo viên</span>
+                        <span id="display-user-name" style="font-size: 14px; font-weight: 800; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%;">Người dùng</span>
+                    </div>
+                    
+                    <div style="width: 35px; height: 35px; min-width: 35px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: bold;">👤</div>
+                </div>
+            </div>
+        </header>
+
+        <div class="content-area" id="main-screens-container">
+            
+            <div id="screen-home" class="screen hidden">
+                <div class="home-hero-banner">
+    
+    <img src="9ad44f506dfbc6e2cb4b377373fc80e4.png" alt="Welcome Banner" class="hero-custom-img">
+                    <div class="hero-stats">
+                        <div class="stat-badge"><span id="total-subjects-count">0</span> Phân môn</div>
+                        <div class="stat-badge"><span id="total-quizzes-count">0</span> Đề thi</div>
+                    </div>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h3 style="margin: 0; font-size: 22px; color: var(--primary);">📚 Không gian học tập</h3>
+                    <button class="btn btn-primary teacher-only" onclick="addNewSubject()">+ Thêm môn học</button>
+                </div>
+                
+                <div class="subject-grid" id="subject-list"></div>
+            </div>
+
+            <div id="screen-subject" class="screen hidden">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 20px; align-items: center;">
+                    <h2 id="current-subject-name" style="margin: 0; font-size: 28px;">Tên Môn</h2>
+                    <button class="btn btn-primary" onclick="openInputScreen()">+ Thêm đề mới</button>
+                </div>
+                <div id="quiz-list"></div>
+            </div>
+
+            <div id="screen-input" class="screen hidden">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px solid var(--border-color);">
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <button class="btn btn-secondary" onclick="goBackToSubject()" style="padding: 10px 15px; border-radius: 12px;">
+                <i class="ph-bold ph-arrow-left"></i> Trở về
+            </button>
+            <h2 style="margin: 0; font-size: 24px; color: var(--text-main);">Thiết lập Đề Thi</h2>
+        </div>
+        <button class="btn btn-primary" style="padding: 12px 30px; font-size: 16px;" onclick="saveNewQuiz()">
+            <i class="ph-bold ph-floppy-disk" style="margin-right: 5px;"></i> Lưu Bài Tập
+        </button>
+    </div>
+
+    <div class="compose-grid">
+        
+        <div class="compose-meta">
+            <div class="input-group">
+                <label>Tên bài tập <span style="color: var(--danger);">*</span></label>
+                <input type="text" id="quiz-title-input" placeholder="VD: Đề kiểm tra định kỳ số 1...">
+            </div>
+            
+            <div class="input-group">
+                <label>Thời gian làm bài (Phút)</label>
+                <input type="number" id="quiz-time-limit" placeholder="Để trống nếu không tính giờ">
+            </div>
+            
+            <div class="input-group">
+                <label>Video bài giảng (Link YouTube)</label>
+                <input type="text" id="quiz-youtube-link" placeholder="Dán link vào đây..." style="border-left: 4px solid var(--text-muted);">
+            </div>
+
+            <div class="syntax-guide">
+                <h4><i class="ph-fill ph-magic-wand"></i> Bảng Cú Pháp Nhanh</h4>
+                <ul>
+                    <li><code>*A.</code> Đặt dấu <b>*</b> trước đáp án đúng</li>
+                    <li><code>[IMG: url]</code> Chèn hình ảnh</li>
+                    <li><code>[AUDIO: url]</code> Chèn file nghe</li>
+                    <li><code>Giải thích:</code> Ghi chú lời giải ở cuối</li>
+                    <li><code>[WRITING]</code> Tạo câu Tự luận</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="compose-editor">
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <div style="display: flex; gap: 10px; background: var(--card-bg-elevated); padding: 6px; border-radius: 12px; border: 1px solid var(--border-color);">
+                    <button id="tab-raw" class="btn btn-primary btn-sm" style="box-shadow: none; padding: 8px 15px;" onclick="switchComposeMode('raw')"><i class="ph-bold ph-pen-nib"></i> Soạn Nhanh (AI)</button>
+                    <button id="tab-builder" class="btn btn-secondary btn-sm" style="border: none; padding: 8px 15px;" onclick="switchComposeMode('builder')"><i class="ph-bold ph-puzzle-piece"></i> Lắp ráp Thủ công</button>
+                </div>
+                <span style="font-size: 13px; color: var(--text-muted); background: var(--bg-main); padding: 5px 12px; border-radius: 20px; border: 1px solid var(--border-color); display: flex; align-items: center; gap: 5px;">
+                    <i class="ph-bold ph-info"></i> Ctrl+V dán ảnh
+                </span>
+            </div>
+            
+            <textarea id="raw-text" placeholder="Dán toàn bộ nội dung đề thi của bạn vào đây...&#10;&#10;Hoặc chuyển sang tab [Lắp ráp Thủ công] để hệ thống tự động sinh cấu trúc câu hỏi cho bạn!"></textarea>
+
+            <div id="builder-mode" class="hidden" style="flex: 1; display: flex; flex-direction: column; gap: 15px; overflow-y: auto;">
+                
+                <div style="background: var(--card-bg-elevated); padding: 15px; border-radius: 12px; border: 1px solid var(--border-color);">
+                    <label style="font-weight: bold; font-size: 14px; margin-bottom: 8px; display: block; color: var(--text-muted);">Loại câu hỏi muốn thêm:</label>
+                    <select id="builder-type" class="builder-input" onchange="changeBuilderType()" style="padding: 12px; background: var(--bg-main); font-weight: bold; cursor: pointer;">
+                        <option value="abcd">🔘 Trắc nghiệm 4 lựa chọn (A, B, C, D)</option>
+                        <option value="tf">⚖️ Cụm câu hỏi Đúng/Sai (A, B, C, D)</option>
+                        <option value="short">✍️ Câu hỏi Trả lời ngắn</option>
+                    </select>
+                </div>
+
+                <textarea id="builder-q" class="builder-input" placeholder="Nhập nội dung câu hỏi hoặc đoạn văn..." style="min-height: 100px; resize: vertical;"></textarea>
+
+                <div id="builder-options-area" style="display: flex; flex-direction: column; gap: 10px;">
+                    </div>
+
+                <textarea id="builder-exp" class="builder-input" placeholder="Nhập lời giải thích đáp án (tùy chọn)..." style="min-height: 80px; resize: vertical;"></textarea>
+
+                <button class="btn btn-primary" style="padding: 16px; font-size: 16px; width: 100%; margin-top: auto; justify-content: center; box-shadow: var(--shadow-float);" onclick="insertBuiltQuestion()">
+                    <i class="ph-bold ph-plus-circle" style="font-size: 20px; margin-right: 8px;"></i> CHÈN CÂU NÀY VÀO ĐỀ
+                </button>
+            </div>
+
+        </div>
+        
+    </div>
+</div>
+
+            <div id="screen-practice" class="screen hidden">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 15px; margin-bottom: 25px; flex-wrap: wrap; gap: 10px;">
+                    <button class="btn btn-secondary" onclick="exitQuiz()">&#8592; Tạm dừng</button>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-secondary teacher-only" onclick="toggleProjectorMode()" style="color: #10b981; border-color: #10b981;" title="Phóng to lên Máy chiếu"><i class="ph-bold ph-projector-screen"></i> Trình Chiếu</button>
+                        <button class="btn btn-secondary" onclick="printCurrentQuiz()" style="color: var(--primary); border-color: var(--primary);"><i class="ph-bold ph-printer"></i> In PDF</button>
+                    </div>
+                    <h3 id="practice-title" style="margin: 0; color: var(--text-main); flex: 1; text-align: center;">Tên đề</h3>
+                    <div style="display: flex; gap: 15px;">
+                        <span id="quiz-timer-display" class="hidden" style="font-weight: bold; font-size: 18px; color: var(--danger);">⏳ 00:00</span>
+                        <span id="question-counter" style="font-weight: bold; color: var(--text-muted);"></span>
+                    </div>
+                </div>
+                <div id="practice-content-wrapper" style="position: relative; width: 100%; min-height: 500px;">
+                    <canvas id="drawing-canvas"></canvas>
+                    <div id="question-content" style="font-size: 18px; line-height: 1.6; margin-bottom: 25px; color: var(--text-main);"></div>
+                    <div id="options-container" style="display: grid; grid-template-columns: 1fr; gap: 12px;"></div>
+                    <div id="feedback" style="margin-top: 20px; font-weight: bold; font-size: 16px;"></div>
+                </div>
+                <button id="next-btn" class="btn btn-primary hidden" style="width: 100%; margin-top: 20px;" onclick="nextQuestion()">Chuyển câu tiếp theo &#8594;</button>
+            </div>
+
+            <div id="screen-vocab-manage" class="screen hidden">
+                <h2 style="margin-top: 0; word-break: break-word;">🛠 Quản lý Kho Từ Vựng</h2>
+                
+                <div style="display: flex; flex-wrap: wrap; gap: 15px; margin-bottom: 15px;">
+                    <input type="text" id="vocab-topic-input" placeholder="Tên Chủ đề (VD: Tuần 1)..." style="flex: 1; min-width: 180px; margin-bottom: 0;">
+                    <input type="text" id="vocab-topic-pass" placeholder="Mật khẩu (Nhập 0 để công khai)" style="flex: 1; min-width: 180px; margin-bottom: 0;" title="Nhập 0 nếu không muốn khóa">
+                </div>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 15px;">
+                    <select id="vocab-level-input" style="padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: transparent; color: var(--text-main);">
+                        <option value="None">-- Chọn Cấp độ --</option>
+                        <option value="A1">Cấp độ: A1</option>
+                        <option value="A2">Cấp độ: A2</option>
+                        <option value="B1">Cấp độ: B1</option>
+                        <option value="B2">Cấp độ: B2</option>
+                        <option value="C1">Cấp độ: C1</option>
+                        <option value="C2">Cấp độ: C2</option>
+                    </select>
+                    
+                    <select id="vocab-type-input" style="padding: 10px; border-radius: 8px; border: 1px solid var(--border-color); background: transparent; color: var(--text-main);">
+                        <option value="word">Từ đơn (Word)</option>
+                        <option value="phrase">Cụm từ (Phrase)</option>
+                        <option value="collo">Kết hợp từ (Collocation)</option>
+                    </select>
+
+                    <input type="text" id="vocab-en-input" placeholder="Tiếng Anh...">
+                    <input type="text" id="vocab-vi-input" placeholder="Tiếng Việt...">
+                    <input type="text" id="vocab-ipa-input" placeholder="Phiên âm (Tùy chọn)...">
+                    <input type="text" id="vocab-pos-input" placeholder="Từ loại (Tùy chọn)...">
+                    <input type="text" id="vocab-syn-input" placeholder="Đồng nghĩa + Nghĩa (VD: huge: to lớn)...">
+                    <input type="text" id="vocab-ant-input" placeholder="Trái nghĩa + Nghĩa (VD: tiny: bé xíu)...">
+                    <textarea id="vocab-note-input" placeholder="Ghi chú nâng cao / Câu ví dụ minh họa / Ngữ cảnh sử dụng từ (Tùy chọn)..." style="grid-column: 1 / -1; height: 65px; margin-top: 5px; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); background: transparent; color: var(--text-main); font-family: inherit; resize: vertical;"></textarea>
+                </div>
+                <button class="btn btn-primary" style="width: 100%; margin-top: 15px; margin-bottom: 30px;" onclick="saveNewVocab()">Thêm vào kho</button>
+                
+                <h3 style="border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">Nhập hàng loạt:</h3>
+                <textarea id="vocab-bulk-input" placeholder="Dán bảng dữ liệu Excel/AI vào đây..." style="height: 100px;"></textarea>
+                <button class="btn btn-secondary" style="width: 100%; margin-bottom: 30px;" onclick="saveBulkVocab()">Xử lý hàng loạt</button>
+
+                <div class="vocab-filter-bar" style="display: flex; gap: 12px; align-items: center; background: rgba(0,0,0,0.05); padding: 12px; border-radius: 12px; margin-bottom: 15px; border: 1px solid var(--border-color); flex-wrap: wrap;">
+                    <div style="flex: 1; min-width: 200px; display: flex; align-items: center; gap: 8px;">
+                        <span style="color: var(--primary); font-size: 14px; font-weight: bold; white-space: nowrap;">🔍 Lọc chủ đề:</span>
+                        <select id="manage-vocab-filter" class="form-control" style="margin: 0; padding: 8px 12px; flex: 1; border-color: var(--primary);" onchange="filterVocabTable()">
+                            <option value="ALL">Tất cả chủ đề</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-secondary" style="background: rgba(239, 68, 68, 0.1); border-color: var(--danger); color: var(--danger); padding: 8px 16px; font-size: 14px;" onclick="deleteTopicBulk()">
+                        🗑️ Xóa sạch chủ đề đang lọc
+                    </button>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; flex-wrap: wrap; gap: 10px;">
+                    <h3 style="margin: 0;">Danh sách (<span id="vocab-total-count">0</span>)</h3>
+                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                        <button class="btn btn-secondary btn-sm" onclick="openPrintVocabModal()" style="color: var(--primary); border-color: var(--primary);">
+                            <i class="ph-bold ph-printer"></i> In Từ Vựng
+                        </button>
+                        <div id="vocab-select-all-container" class="hidden" style="display: flex; align-items: center; gap: 8px; background: rgba(0,0,0,0.05); padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border-color);">
+                            <input type="checkbox" id="vocab-select-all" onchange="toggleSelectAllVocab()" style="margin: 0; width: 16px; height: 16px; cursor: pointer;">
+                            <label for="vocab-select-all" style="font-size: 14px; margin: 0; cursor: pointer; font-weight: bold; color: var(--primary);">Chọn hết</label>
+                        </div>
+                        <button id="btn-toggle-bulk" class="btn btn-secondary btn-sm" onclick="toggleVocabBulkDelete()">Chọn nhiều</button>
+                        <button id="btn-confirm-bulk" class="btn btn-danger btn-sm hidden" onclick="deleteSelectedVocabs()">Xóa đã chọn</button>
+                    </div>
+                </div>
+                
+                <div id="vocab-manage-list"></div>
+            </div>
+
+            <div id="screen-vocab-game" class="screen hidden">
+                <div id="vocab-start-menu" class="vocab-bento-container animate-fade-in-up">
+                    <div class="bento-card bento-hero">
+                        <div class="bento-header">
+                            <h3>Tổng quan Kho Từ Vựng</h3>
+                            <div class="bento-icon"><i class="ph-duotone ph-chart-line-up"></i></div>
+                        </div>
+                        <div class="bento-body">
+                            <div class="bento-stat">
+                                <span class="stat-value" id="bento-total-words">0</span>
+                                <span class="stat-label">Từ vựng đã lưu</span>
+                            </div>
+                            <div class="bento-stat">
+                                <span class="stat-value" id="bento-total-topics">0</span>
+                                <span class="stat-label">Chủ đề</span>
+                            </div>
+                        </div>
+                        <div class="decorative-wave"></div>
+                    </div>
+
+                    <div class="bento-card bento-action">
+                        <h3>Vào Học Ngay 🚀</h3>
+                        <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 15px;">Chọn chủ đề và chế độ thử thách của em.</p>
+                        
+                        <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                            <select id="vocab-topic-select" style="flex: 1; border-color: var(--primary); margin-bottom: 0;"></select>
+                            <button class="btn btn-secondary" onclick="shareVocabQR()" title="Chia sẻ Bài tập Từ vựng" style="padding: 0 15px; border-color: var(--primary); color: var(--primary);">
+                                <i class="ph-bold ph-qr-code" style="font-size: 20px;"></i>
+                            </button>
+                        </div>
+
+                        <div style="text-align: left; background: rgba(0,0,0,0.05); padding: 15px; border-radius: 16px; margin-bottom: 20px; border: 1px solid var(--border-color);">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <span style="font-size: 13px; font-weight: 600;">🔊 Tự động đọc từ</span>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="start-set-tts">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                         <span style="font-size: 13px; font-weight: 600;">🔊 Tự động đọc từ</span>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="start-set-tts">
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                            
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                                <span style="font-size: 13px; font-weight: 600;">⏱️ Áp lực thời gian</span>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="start-set-timer" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+
+                            <div style="display: flex; justify-content: space-between; align-items: center;">
+                                <span style="font-size: 13px; font-weight: 600;">✨ Hiệu ứng hình ảnh</span>
+                                <label class="toggle-switch">
+                                    <input type="checkbox" id="start-set-effects" checked>
+                                    <span class="toggle-slider"></span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <button class="btn btn-secondary" style="width: 100%; font-size: 16px; padding: 15px; margin-bottom: 12px; border-color: var(--primary); color: var(--primary); background: rgba(15, 77, 95, 0.1);" onclick="openFlashcardMode()">
+                            📖 Ôn Tập Nhanh (Flashcards)
+                        </button>
+
+                        <button class="btn btn-primary" style="width: 100%; font-size: 16px; padding: 15px; background: linear-gradient(135deg, var(--accent-1), #e11d48); box-shadow: 0 10px 20px rgba(244, 63, 94, 0.3);" onclick="initVocabGame()">Bắt Đầu Chiến 🎮</button>
+                    </div>
+
+                    <div class="bento-card bento-stats">
+                        <h3>Thành tích Cá nhân 🏆</h3>
+                        <div class="stats-grid">
+                            <div class="mini-stat-box">
+                                <div class="mini-stat-icon" style="color: var(--accent-4);"><i class="ph-fill ph-fire"></i></div>
+                                <div class="mini-stat-info">
+                                    <span id="bento-max-streak">0</span>
+                                    <label>Chuỗi Dài Nhất</label>
+                                </div>
+                            </div>
+                            <div class="mini-stat-box">
+                                <div class="mini-stat-icon" style="color: var(--accent-2);"><i class="ph-fill ph-star"></i></div>
+                                <div class="mini-stat-info">
+                                    <span id="bento-max-score">0</span>
+                                    <label>Điểm Kỷ Lục</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div id="vocab-game-play-area" class="hidden">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 20px;">
+                        <div id="vocab-lives" style="font-size: 20px;">❤️❤️❤️</div>
+                        <div style="font-weight: bold;">🔥 Chuỗi: <span id="vocab-streak">0</span> | 🏆 Điểm: <span id="vocab-score">0</span></div>
+                    </div>
+                    <div id="vocab-rankings" class="hidden"></div>
+                    <div id="vocab-question-card" style="background: var(--card-bg-elevated); padding: 30px; border-radius: var(--radius-xl); text-align: center; margin-bottom: 20px; border: 1px solid var(--border-color);">
+                        <span id="vocab-hint" style="color: var(--primary); font-weight: bold;">TỪ VỰNG</span>
+                        <h2 id="vocab-question-text" style="margin-top: 10px;">Câu hỏi?</h2>
+                        <div id="vocab-options-container" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px;"></div>
+                    </div>
+                    <div id="vocab-explanation" class="hidden" style="background: rgba(139, 92, 246, 0.1); padding: 20px; border-radius: var(--radius-lg); border: 1px solid var(--primary);">
+                        <div id="vocab-explain-content"></div>
+                        <button id="vocab-next-btn" class="btn btn-primary" style="width: 100%; margin-top: 15px;" onclick="nextVocabQuestion()">Tiếp tục</button>
+                    </div>
+                </div>
+
+                <div id="vocab-game-over" class="hidden animate-fade-in-up" style="text-align: center; padding: 40px;">
+                    <div style="font-size: 60px;">🏆</div><h2>Trò chơi kết thúc!</h2>
+                    <div style="display: flex; justify-content: center; gap: 20px; margin-bottom: 30px;">
+                        <div style="padding: 20px; background: var(--card-bg-elevated); border-radius: var(--radius-lg);">ĐIỂM: <strong id="vocab-final-score" style="font-size: 24px; color: var(--primary);">0</strong></div>
+                        <div style="padding: 20px; background: var(--card-bg-elevated); border-radius: var(--radius-lg);">CHUỖI: <strong id="vocab-final-streak" style="font-size: 24px; color: var(--primary);">0</strong></div>
+                    </div>
+                    <button class="btn btn-primary" onclick="openVocabGame()">Chơi lại</button>
+                </div>
+            </div>
+
+            <div id="screen-result" class="screen hidden">
+                <h2 style="text-align: center; font-size: 32px; margin-bottom: 10px;">Tổng kết bài làm</h2>
+                
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <button class="btn btn-secondary" onclick="printQuizResult()" style="color: var(--primary); border-color: var(--primary); box-shadow: 0 4px 10px rgba(15, 77, 95, 0.1);"><i class="ph-bold ph-printer"></i> IN KẾT QUẢ CHI TIẾT</button>
+                </div>
+
+                <div class="result-summary" style="display: flex; justify-content: center; gap: 20px; margin-bottom: 30px; flex-wrap: wrap;">
+                    <div class="score-box" style="background: var(--card-bg-elevated); padding: 20px; border-radius: 12px; text-align: center; min-width: 120px; border: 1px solid var(--border-color);"><div class="score-label" style="color: var(--text-muted); font-size: 14px;">Điểm số</div><div class="score-value" id="final-score" style="font-size: 24px; font-weight: bold; color: var(--primary);">0/0</div></div>
+                    <div class="score-box" style="background: var(--card-bg-elevated); padding: 20px; border-radius: 12px; text-align: center; min-width: 120px; border: 1px solid var(--border-color);"><div class="score-label" style="color: var(--text-muted); font-size: 14px;">Làm đúng</div><div class="score-value" id="correct-count" style="font-size: 24px; font-weight: bold; color: var(--success);">0</div></div>
+                    <div class="score-box" style="background: var(--card-bg-elevated); padding: 20px; border-radius: 12px; text-align: center; min-width: 120px; border: 1px solid var(--border-color);"><div class="score-label" style="color: var(--text-muted); font-size: 14px;">Làm sai</div><div class="score-value" id="incorrect-count" style="font-size: 24px; font-weight: bold; color: var(--danger);">0</div></div>
+                </div>
+                
+                <div id="wrong-answers-container" class="hidden">
+                    <h3 style="border-bottom: 1px solid var(--border-color); padding-bottom: 15px;">Bảng phân tích:</h3>
+                    <div id="wrong-answers-list"></div>
+                </div>
+                
+                <div id="result-video-container" class="hidden" style="margin-top: 30px; text-align: center; background: var(--card-bg-elevated); padding: 25px; border-radius: var(--radius-xl); box-shadow: var(--shadow-soft); border: 1px solid var(--border-color);">
+                    <h3 style="color: #ef4444; margin-top: 0; display: flex; align-items: center; justify-content: center; gap: 10px;"><i class="ph-fill ph-youtube-logo" style="font-size: 28px;"></i> Video Bài Giảng Chữa Đề</h3>
+                    <iframe id="result-video-iframe" width="100%" height="400" style="border-radius: 16px; border: 1px solid var(--border-color);" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+                    <a id="result-video-fallback" href="#" target="_blank" class="btn btn-secondary" style="margin-top: 15px; width: 100%; border-color: #ef4444; color: #ef4444; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                        <i class="ph-bold ph-arrow-square-out" style="font-size: 20px;"></i> Màn hình đen? Bấm để xem trực tiếp trên YouTube
+                    </a>
+                </div>
+
+                <button class="btn btn-primary" style="width: 100%; margin-top: 30px;" onclick="exitQuiz()">Hoàn tất & Thoát</button>
+            </div>
+            <div id="screen-document" class="screen hidden">
+                <h2 style="margin-top: 0;">📚 Kho Tài Liệu Phân Môn</h2>
+                <div style="background: rgba(0,0,0,0.05); padding: 25px; border-radius: var(--radius-lg); margin-bottom: 30px; border: 1px solid var(--border-color);">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px;">
+                        <input type="text" id="doc-subject" placeholder="Phân môn (Toán, Lý...)" required>
+                        <input type="text" id="doc-title" placeholder="Tên tài liệu..." required>
+                        <input type="file" id="doc-file" accept=".pdf" style="padding: 12px; background: transparent; border: 1px dashed var(--border-color);">
+                        <input type="text" id="doc-link" placeholder="HOẶC Dán link Drive vào đây...">
+                    </div>
+                    <button id="btn-upload-doc" class="btn btn-primary" style="width: 100%; margin-top: 15px;" onclick="saveNewDocument()">📤 Tải lên & Lưu Trữ</button>
+                </div>
+                <div id="doc-manage-list"></div>
+            </div>
+
+            <div id="screen-focus" class="screen hidden">
+                <div class="focus-container animate-fade-in-up" style="max-width: 900px; margin: 0 auto;">
+                    <div class="focus-header" style="text-align: center; margin-bottom: 30px;">
+                        <h2 style="font-size: 32px; color: var(--primary); margin-bottom: 5px;">🧠 Không Gian Tập Trung</h2>
+                        <p style="color: var(--text-muted);">Khóa xao nhãng, bật nhạc Lofi và bắt đầu chạy Pomodoro.</p>
+                    </div>
+                    
+                    <div class="focus-main-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+                        <div class="pomodoro-box" style="background: var(--card-bg); padding: 40px 20px; border-radius: var(--radius-xl); text-align: center; box-shadow: var(--shadow-soft); border: 1px solid var(--border-color);">
+                            <div class="pomo-tabs" style="display: flex; justify-content: center; gap: 10px; margin-bottom: 30px;">
+                                <button id="tab-pomo" class="btn btn-primary" onclick="setPomoMode('pomodoro')">Pomodoro (25p)</button>
+                                <button id="tab-short" class="btn btn-secondary" onclick="setPomoMode('shortBreak')">Nghỉ (5p)</button>
+                                <button id="tab-long" class="btn btn-secondary" onclick="setPomoMode('longBreak')">Nghỉ (15p)</button>
+                            </div>
+                            
+                            <div class="pomo-timer-display" id="pomo-time" style="font-size: 80px; font-weight: 900; color: var(--text-main); line-height: 1; margin-bottom: 30px; font-variant-numeric: tabular-nums;">25:00</div>
+                            
+                            <div class="pomo-controls" style="display: flex; justify-content: center; gap: 15px; margin-bottom: 25px;">
+                                <button id="pomo-start-btn" class="btn btn-primary" style="font-size: 18px; padding: 15px 40px;" onclick="togglePomoTimer()">BẮT ĐẦU</button>
+                                <button class="btn btn-secondary" style="font-size: 18px; padding: 15px 20px;" onclick="resetPomoTimer()" title="Làm lại"><i class="ph-bold ph-arrows-counter-clockwise"></i></button>
+                            </div>
+                            <div class="pomo-stats" style="color: var(--text-muted);">
+                                <span>🍅 Phiên tập trung hoàn thành: <strong id="pomo-session-count" style="color: var(--primary); font-size: 20px;">0</strong></span>
+                            </div>
+                        </div>
+
+                        <div class="lofi-box" style="background: var(--card-bg); padding: 30px 20px; border-radius: var(--radius-xl); box-shadow: var(--shadow-soft); border: 1px solid var(--border-color); display: flex; flex-direction: column;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                                <h3 style="margin: 0; color: var(--primary); display: flex; align-items: center; gap: 10px;"><i class="ph-fill ph-headphones"></i> Trạm Âm Nhạc</h3>
+                                <div style="display: flex; gap: 10px; background: rgba(0,0,0,0.05); padding: 5px; border-radius: 12px; border: 1px solid var(--border-color);">
+                                    <button id="tab-btn-youtube" class="btn btn-primary btn-sm" style="box-shadow: none;" onclick="switchMusicTab('youtube')">YouTube</button>
+                                    <button id="tab-btn-cloud" class="btn btn-secondary btn-sm" style="border: none;" onclick="switchMusicTab('cloud')">Nhạc Của Tôi</button>
+                                </div>
+                            </div>
+
+                            <div id="music-area-youtube" style="display: flex; flex-direction: column; flex: 1;">
+                                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                                    <input type="text" id="lofi-youtube-link" placeholder="Dán link nhạc Youtube vào đây..." style="margin-bottom: 0; padding: 12px 15px; flex: 1;">
+                                    <button class="btn btn-primary" onclick="loadLofiMusic()">Phát</button>
+                                </div>
+                                <div style="flex: 1; border-radius: 16px; overflow: hidden; background: #000; min-height: 200px; display: flex; flex-direction: column;">
+                                    <iframe id="lofi-iframe" width="100%" height="100%" src="https://www.youtube.com/embed/5yx6BWlEVcU?autoplay=0&controls=1" title="Lofi hip hop radio" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen style="min-height: 250px; flex: 1;"></iframe>
+                                </div>
+                                <a id="lofi-fallback-btn" href="https://www.youtube.com/watch?v=5yx6BWlEVcU" target="_blank" class="btn btn-secondary hidden" style="margin-top: 15px; width: 100%; border-color: var(--primary); color: var(--primary); font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 8px;">
+                                    <i class="ph-bold ph-arrow-square-out" style="font-size: 20px;"></i> Bị chặn? Nghe trực tiếp trên YouTube
+                                </a>
+                            </div>
+
+                            <div id="music-area-cloud" class="hidden" style="display: flex; flex-direction: column; flex: 1;">
+                                <div style="display: flex; gap: 10px; margin-bottom: 15px;">
+                                    <input type="file" id="cloud-audio-file" accept="audio/mp3,audio/wav" style="padding: 10px; flex: 1; border: 1px dashed var(--primary); background: transparent; border-radius: 8px; color: var(--text-main);">
+                                    <button id="btn-upload-audio" class="btn btn-primary" onclick="uploadFocusAudio()">Tải Lên ☁️</button>
+                                </div>
+                                <div id="cloud-music-list" style="flex: 1; background: rgba(0,0,0,0.05); border-radius: 12px; padding: 15px; overflow-y: auto; margin-bottom: 15px; border: 1px solid var(--border-color); min-height: 160px; max-height: 180px;"></div>
+                                <div style="background: var(--card-bg-elevated); padding: 15px; border-radius: 16px; border: 1px solid var(--border-color); box-shadow: var(--shadow-soft);">
+                                    <div id="cloud-now-playing" style="font-weight: bold; color: var(--primary); margin-bottom: 10px; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">🎵 Đang phát: Không có bài hát nào</div>
+                                    <audio id="cloud-audio-player" controls loop style="width: 100%; height: 40px; outline: none;"></audio>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="screen-mindmap" class="screen hidden">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <div>
+                        <h2 style="margin: 0; font-size: 28px; color: var(--primary);">🧠 Sơ Đồ Tư Duy AI</h2>
+                        <p style="color: var(--text-muted); margin: 5px 0 0 0;">Nhập từ khóa hoặc đoạn văn bản, AI sẽ hệ thống hóa kiến thức cho bạn.</p>
+                    </div>
+                    <button id="mm-btn-export" class="btn btn-secondary hidden" onclick="mm_exportHTML()" style="color: var(--success); border-color: var(--success);"><i class="ph-bold ph-download-simple"></i> Xuất File HTML</button>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; min-height: 500px;">
+                    <div style="background: var(--card-bg); padding: 20px; border-radius: var(--radius-lg); border: 1px solid var(--border-color); display: flex; flex-direction: column; gap: 15px;">
+                        <input type="text" id="mm-keyword" placeholder="Nhập từ khóa (VD: Chiến tranh lạnh)..." style="margin-bottom: 0;">
+                        
+                        <div style="display: flex; flex-direction: column; gap: 8px; flex: 1;">
+                            <div style="display: flex; gap: 5px; flex-wrap: wrap; padding-bottom: 5px; border-bottom: 1px solid var(--border-color);">
+                                <span style="font-size: 12px; color: var(--text-muted); width: 100%; margin-bottom: 4px;">Tạo nhánh nhanh:</span>
+                                <button class="btn" style="padding: 5px 8px; font-size: 12px; background: var(--card-bg-elevated); border: 1px solid var(--border-color);" onclick="mm_insertMD('# ')">🌟 Gốc (#)</button>
+                                <button class="btn" style="padding: 5px 8px; font-size: 12px; background: var(--card-bg-elevated); border: 1px solid var(--border-color);" onclick="mm_insertMD('\n## ')">🌿 Nhánh 1 (##)</button>
+                                <button class="btn" style="padding: 5px 8px; font-size: 12px; background: var(--card-bg-elevated); border: 1px solid var(--border-color);" onclick="mm_insertMD('\n### ')">🍃 Nhánh 2 (###)</button>
+                                <button class="btn" style="padding: 5px 8px; font-size: 12px; background: var(--card-bg-elevated); border: 1px solid var(--border-color);" onclick="mm_insertMD('\n- ')">▫️ Ý nhỏ (-)</button>
+                            </div>
+                            <textarea id="mm-context" oninput="mm_livePreview()" placeholder="Dán văn bản hoặc viết dàn ý Markdown rễ cây tại đây..." style="flex: 1; min-height: 150px; resize: vertical; margin-bottom: 0; padding: 15px; line-height: 1.6; font-family: monospace; font-size: 14px;"></textarea>
+                        </div>
+                        <button id="mm-btn-generate" class="btn btn-primary" onclick="mm_generateMindmap()" style="width: 100%;">🚀 TẠO BẰNG AI</button>
+                        <button class="btn btn-secondary" onclick="mm_renderDirect()" style="width: 100%; border-color: var(--success); color: var(--success); background: transparent;">✨ HIỂN THỊ TRỰC TIẾP</button>
+                    </div>
+
+                    <div id="mm-canvas-container" style="background: var(--card-bg-elevated); border-radius: var(--radius-lg); border: 1px solid var(--border-color); overflow: hidden; position: relative; min-height: 400px;">
+                        <div id="mm-placeholder" style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); color: var(--text-muted); text-align: center;">
+                            <i class="ph-duotone ph-git-branch" style="font-size: 60px; opacity: 0.5;"></i>
+                            <p>Sơ đồ sẽ hiển thị ở đây</p>
+                        </div>
+                        <svg id="mm-svg" style="width: 100%; height: 100%; min-height: 400px;"></svg>
+                    </div>
+                </div>
+            </div>
+
+            <div id="screen-teach" class="screen hidden">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-bottom: 15px; margin-bottom: 25px;">
+                    <button class="btn btn-secondary" onclick="exitTeachMode()">&#8592; Thoát</button>
+                    <h3 id="teach-title" style="margin: 0; color: var(--text-main); flex: 1; text-align: center; font-size: 24px;">Chế độ Giảng Bài</h3>
+                    <button class="btn btn-primary" onclick="saveTeachDoc()" style="background: var(--success); border: none; box-shadow: 0 4px 15px rgba(22,163,74,0.3);"><i class="ph-bold ph-floppy-disk"></i> LƯU GHI CHÚ</button>
+                </div>
+                <div id="teach-document-wrapper" style="position: relative; width: 100%; max-width: 1000px; margin: 0 auto; background: var(--card-bg); padding: 50px 60px; border-radius: 12px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); min-height: 800px; border: 1px solid var(--border-color);">
+                    <canvas id="teach-canvas" style="position: absolute; top: 0; left: 0; z-index: 9000; pointer-events: none;"></canvas>
+                    <div id="teach-content" style="position: relative; z-index: 1; font-size: 18px; line-height: 1.8; color: var(--text-main); outline: none;" contenteditable="true"></div>
+                </div>
+                <div id="teach-toolbox" style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: var(--card-bg-elevated); padding: 10px 20px; border-radius: 50px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid var(--border-color); display: flex; gap: 15px; align-items: center; z-index: 9999;">
+                    <button class="wb-btn active" id="tb-cursor" onclick="setTeachMode('cursor')" title="Chuột (Gõ chữ)"><i class="ph-bold ph-cursor"></i></button>
+                    <div style="width: 1px; height: 24px; background: var(--border-color);"></div>
+                    <button class="wb-btn" id="tb-pen-red" onclick="setTeachMode('pen-red')" title="Bút Đỏ"><i class="ph-bold ph-pencil-simple" style="color: #ef4444;"></i></button>
+                    <button class="wb-btn" id="tb-pen-blue" onclick="setTeachMode('pen-blue')" title="Bút Xanh"><i class="ph-bold ph-pencil-simple" style="color: #3b82f6;"></i></button>
+                    <button class="wb-btn" id="tb-highlighter" onclick="setTeachMode('highlighter')" title="Dạ Quang Vẽ"><i class="ph-bold ph-highlighter" style="color: #eab308;"></i></button>
+                    <button class="wb-btn" id="tb-eraser" onclick="setTeachMode('eraser')" title="Cục Tẩy"><i class="ph-bold ph-eraser"></i></button>
+                    <div style="width: 1px; height: 24px; background: var(--border-color);"></div>
+                    <button class="wb-btn" onclick="document.execCommand('bold', false, null)" title="In đậm"><i class="ph-bold ph-text-b"></i></button>
+                    <button class="wb-btn" onclick="document.execCommand('italic', false, null)" title="In nghiêng"><i class="ph-bold ph-text-italic"></i></button>
+                    <input type="color" onchange="document.execCommand('foreColor', false, this.value)" title="Màu chữ" style="width:30px; height:30px; padding:0; border:none; border-radius:50%; cursor:pointer; background:transparent;">
+                    <div style="width: 1px; height: 24px; background: var(--border-color);"></div>
+                    <button class="wb-btn" onclick="clearTeachCanvas()" title="Xóa nét vẽ tay"><i class="ph-bold ph-trash"></i></button>
+                    <button class="wb-btn" onclick="exportTeachPDF()" title="Xuất PDF" style="color: var(--primary);"><i class="ph-bold ph-download-simple"></i> LƯU PDF</button>
+                </div>
+            </div>
+            
+            <div id="highlight-tooltip" class="hidden" onclick="applyHighlight()" style="position: fixed; background: var(--card-bg-elevated); padding: 8px 12px; border-radius: 8px; box-shadow: var(--shadow-float); border: 1px solid var(--border-color); z-index: 10000; cursor: pointer; display: flex; align-items: center; gap: 6px;">
+                <i class="ph-fill ph-highlighter" style="color: #fef08a; font-size: 16px;"></i> Bôi vàng
+            </div>
+
+        </div>
+    </main>
+</div>
+<div id="print-area"></div>
+<div id="mobile-action-bar" class="mobile-sticky-actions"></div> 
+<div id="bottom-nav">
+    <div class="nav-item active" onclick="goHome(); setActiveNav(this)"><i class="ph-fill ph-house"></i><span>Trang chủ</span></div>
+    <div class="nav-item teacher-only" onclick="openVocabManage(); setActiveNav(this)"><i class="ph-fill ph-book-bookmark"></i><span>Từ vựng</span></div>
+    <div class="nav-item" onclick="openVocabGame(); setActiveNav(this)"><i class="ph-fill ph-game-controller"></i><span>Giải trí</span></div>
+    <div class="nav-item" onclick="openFocusSpace(); setActiveNav(this)"><i class="ph-fill ph-timer"></i><span>Tập trung</span></div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/animejs/3.2.1/anime.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tsparticles@2.12.0/tsparticles.bundle.min.js"></script>
+<script src="script.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+
+<div id="screen-login" class="screen" style="position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: var(--bg-main); z-index: 1000000; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(10px);">
+    <div class="auth-container" style="background: var(--card-bg); padding: 40px; border-radius: var(--radius-xl); box-shadow: var(--shadow-float); border: 1px solid var(--border-color); width: 100%; max-width: 420px; text-align: center;">
+        <h2 style="color: var(--primary); margin-bottom: 5px; font-size: 28px;">🎓 Study Space</h2>
+        <p style="color: var(--text-muted); margin-bottom: 25px; font-size: 14px;">Hệ thống Luyện thi Cá nhân</p>
+        
+        <div style="display: flex; gap: 10px; margin-bottom: 25px;">
+            <button id="tab-login" class="btn btn-primary active" style="flex: 1; " onclick="switchAuthTab('login')">Đăng Nhập</button>
+            <button id="tab-register" class="btn btn-secondary" style="flex: 1;" onclick="switchAuthTab('register')">Đăng Ký</button>
+        </div>
+        
+        <div id="form-login">
+            <input type="text" id="login-user" placeholder="Tên đăng nhập..." style="text-align: center;">
+            <input type="password" id="login-pass" placeholder="Mật khẩu..." style="text-align: center;">
+            <button id="btn-do-login" class="btn btn-primary" style="width: 100%; justify-content: center; font-size: 16px; padding: 15px;" onclick="handleLogin()">Đăng Nhập 🚀</button>
+        </div>
+        
+        <div id="form-register" class="hidden">
+            <input type="text" id="reg-fullname" placeholder="Họ và tên thật..." style="text-align: center;">
+            <input type="text" id="reg-class" placeholder="Lớp học (VD: 12A5)..." style="text-align: center;">
+            <input type="text" id="reg-user" placeholder="Tên đăng nhập (Viết liền, không dấu)..." style="text-align: center;">
+            <input type="password" id="reg-pass" placeholder="Mật khẩu..." style="text-align: center;">
+            <button id="btn-do-register" class="btn btn-primary" style="width: 100%; justify-content: center; font-size: 16px; padding: 15px;" onclick="handleRegister()">Gửi Yêu Cầu Đăng Ký</button>
+        </div>
+    </div>
+</div>
+<div id="update-toast" style="display: none; position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: var(--card-bg); border: 2px solid var(--primary); padding: 20px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.25); z-index: 9999999; text-align: center; width: 90%; max-width: 350px;">
+        <div style="font-size: 30px; margin-bottom: 10px;">🚀</div>
+        <div style="font-weight: 900; color: var(--primary); font-size: 18px; margin-bottom: 8px;">Đã có bản cập nhật mới!</div>
+        <div style="font-size: 14px; color: var(--text-main); margin-bottom: 15px; line-height: 1.4;">Hệ thống vừa được nâng cấp. Vui lòng tải lại để sử dụng tính năng mới nhất nhé!</div>
+        <button onclick="window.location.reload(true)" style="background: var(--primary); color: #fff; border: none; padding: 12px 20px; border-radius: 10px; font-weight: 900; width: 100%; cursor: pointer; text-transform: uppercase; font-family: inherit;">Tải lại ngay</button>
+    </div>
+</body>
+</html>
