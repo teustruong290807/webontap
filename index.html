@@ -41,9 +41,9 @@
         window.MathJax = { tex: { inlineMath: [['$', '$'], ['\\(', '\\)']], displayMath: [['$$', '$$'], ['\\[', '\\]']], packages: {'[+]': ['ams']} } };
     </script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
-    <script src="https://cdn.jsdelivr.net/npm/markmap-lib"></script>
-    <script src="https://cdn.jsdelivr.net/npm/markmap-view"></script>
+    <script src="https://cdn.jsdelivr.net/npm/d3@7" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/markmap-lib" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/markmap-view" defer></script>
 </head>
 <body>
 
@@ -55,9 +55,10 @@
         </div>
         
         <nav class="sidebar-menu" style="display: flex; flex-direction: column; gap: 10px;">
-            <button class="btn btn-secondary sidebar-btn" onclick="goHome()">
-                <div class="icon-box"><i class="ph-duotone ph-house"></i></div> <span class="menu-text">Trang chủ Môn Học</span>
-            </button>
+            <button class="btn sidebar-btn" onclick="goHome()">
+    <div class="icon-box"><i class="ph-duotone ph-house"></i></div> 
+    <span class="menu-text">Trang chủ</span>
+</button>
             <button class="btn btn-secondary sidebar-btn" onclick="openDocManage()">
                 <div class="icon-box"><i class="ph-duotone ph-books"></i></div> <span class="menu-text">Kho Tài Liệu PDF</span>
             </button>
@@ -73,6 +74,10 @@
             <button class="btn btn-secondary sidebar-btn" onclick="mm_openMindmap()">
                 <div class="icon-box"><i class="ph-duotone ph-git-branch"></i></div> <span class="menu-text">Sơ Đồ Tư Duy AI</span>
             </button>
+            <button class="btn btn-secondary sidebar-btn" onclick="openBookmarkScreen()">
+    <div class="icon-box" style="color: #f59e0b;"><i class="ph-duotone ph-star"></i></div> 
+    <span class="menu-text">Câu Hỏi Khó ⭐️</span>
+</button>
         </nav>
 
         <div class="sidebar-footer" style="margin-top: auto; display: flex; flex-direction: column; gap: 10px;">
@@ -112,7 +117,7 @@
             </div>
         </header>
 
-        <div class="content-area" id="main-screens-container">
+<div class="content-area" id="main-screens-container">
             
             <div id="screen-home" class="screen hidden">
                 <div class="home-hero-banner">
@@ -606,6 +611,17 @@
             
             <div id="highlight-tooltip" class="hidden" onclick="applyHighlight()" style="position: fixed; background: var(--card-bg-elevated); padding: 8px 12px; border-radius: 8px; box-shadow: var(--shadow-float); border: 1px solid var(--border-color); z-index: 10000; cursor: pointer; display: flex; align-items: center; gap: 6px;">
                 <i class="ph-fill ph-highlighter" style="color: #fef08a; font-size: 16px;"></i> Bôi vàng
+            </div>
+
+            <div id="screen-bookmarks" class="screen hidden">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px solid var(--border-color);">
+                    <div>
+                        <h2 style="margin: 0; font-size: 28px; color: #f59e0b;">⭐️ Kho Câu Hỏi Khó Cá Nhân</h2>
+                        <p style="color: var(--text-muted); margin: 5px 0 0 0;">Nơi lưu trữ những câu hỏi em đã đánh dấu để ôn tập lại trước kỳ thi.</p>
+                    </div>
+                </div>
+                <div id="bookmarks-list" style="display: flex; flex-direction: column; gap: 15px;">
+                </div>
             </div>
 
         </div>
