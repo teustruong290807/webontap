@@ -7,7 +7,12 @@ var defaultData = {
 };
 
 // ĐÃ ĐỔI TẤT CẢ THÀNH VAR ĐỂ CỨU IPHONE KHỎI LỖI TRẮNG TRANG
-var localData = JSON.parse(localStorage.getItem('myStudyData'));
+var localData = null;
+try {
+    localData = JSON.parse(localStorage.getItem('myStudyData'));
+} catch (e) {
+    console.log("Lỗi chặn LocalStorage trên iPhone");
+}
 var db = (localData && Object.keys(localData).length > 0) ? localData : defaultData;
 if (!db.Vocabulary) db.Vocabulary = [];
 if (!db.Documents) db.Documents = {};
@@ -34,7 +39,7 @@ var remainingSeconds = 0;
 var IMGBB_API_KEY = '1a44a672e09fd4613cac5a56ec4183ac'; 
 
 // 👇 DÁN WEB APP URL MỚI CỦA BẢN CLONE VÀO ĐÂY 👇
-var CLOUD_API_URL = 'https://script.google.com/macros/s/AKfycbxJ7flmxYRTQVcq3Xp94l6syQ_fzU6mhKzP6ywDnD38JE6Wb4hAKkOeZhUXGZmpo6r_aw/exec';
+var CLOUD_API_URL = 'https://script.google.com/macros/s/AKfycbzZL01CPGOgnSeSh2SnxJco8zVXBz2AqJnmkJdmd-DqBR-LRjZkN_ZeQnuiUWGW5QlCiQ/exec';
 
 var userProgress = {};
 
@@ -154,6 +159,11 @@ async function handleLogin() {
         localStorage.setItem('isLoggedIn', 'true');
         localStorage.setItem('studentName', 'Giáo Viên');
         localStorage.setItem('studentClass', 'Admin');
+        
+        // [MỚI]: LƯU THÊM USERNAME CHO ADMIN ĐỂ DÙNG BOOKMARK
+        localStorage.setItem('currentLoggedInUser', 'admin'); 
+        await fetchUserBookmarks('admin'); 
+        
         window.location.reload();
         return;
     }
@@ -176,7 +186,15 @@ async function handleLogin() {
                 localStorage.setItem('isLoggedIn', 'true');
                 localStorage.setItem('studentName', userInfo.name);
                 localStorage.setItem('studentClass', userInfo.className);
-                alert(`✅ Đăng nhập thành công! Chào mừng ${userInfo.name}.`);
+                
+                // [MỚI]: LƯU THÊM USERNAME ĐỂ HỆ THỐNG BIẾT AI ĐANG LƯU CÂU HỎI
+                localStorage.setItem('currentLoggedInUser', user);
+                
+                alert(`✅ Đăng nhập thành công! Chào mừng ${userInfo.name}. Đang đồng bộ dữ liệu...`);
+                
+                // [MỚI]: ÉP WEB PHẢI TẢI XONG BOOKMARK RỒI MỚI ĐƯỢC RELOAD TRANG
+                await fetchUserBookmarks(user);
+                
                 window.location.reload();
             } catch(e) {
                 alert("❌ Lỗi phản hồi từ máy chủ!");
@@ -184,38 +202,6 @@ async function handleLogin() {
         }
     } catch (error) { alert("❌ Lỗi kết nối máy chủ! Vui lòng thử lại."); }
     btn.innerText = "Đăng Nhập 🚀"; btn.disabled = false;
-}
-
-async function handleRegister() {
-    const name = document.getElementById('reg-fullname').value.trim();
-    const className = document.getElementById('reg-class').value.trim();
-    const user = document.getElementById('reg-user').value.trim();
-    const pass = document.getElementById('reg-pass').value.trim();
-    const btn = document.getElementById('btn-do-register');
-
-    if (!name || !className || !user || !pass) { alert("Vui lòng điền đầy đủ thông tin!"); return; }
-    if (user.includes(" ")) { alert("Tên đăng nhập không được chứa khoảng trắng!"); return; }
-
-    btn.innerText = "Đang gửi yêu cầu... ⏳"; btn.disabled = true;
-    try {
-        const response = await fetch(CLOUD_API_URL, {
-            method: 'POST',
-            headers: { "Content-Type": "text/plain;charset=utf-8" },
-            body: JSON.stringify({ action: 'register', username: user, password: pass, name: name, className: className })
-        });
-        const result = await response.text();
-        
-        if (result === "Username_Exists") { alert("❌ Tên đăng nhập này đã có người sử dụng. Em vui lòng chọn tên khác!"); }
-        else if (result === "Register_Success") {
-            alert("✅ Gửi yêu cầu Đăng ký thành công! Vui lòng đợi Giáo viên duyệt tài khoản trước khi Đăng nhập nhé.");
-            document.getElementById('reg-fullname').value = '';
-            document.getElementById('reg-class').value = '';
-            document.getElementById('reg-user').value = '';
-            document.getElementById('reg-pass').value = '';
-            switchAuthTab('login');
-        }
-    } catch (error) { alert("❌ Lỗi kết nối máy chủ! Vui lòng thử lại."); }
-    btn.innerText = "Gửi Yêu Cầu"; btn.disabled = false;
 }
 
 function logout() {
@@ -264,25 +250,37 @@ function showScreen(screenId) {
 }
 
 function goHome() {
-    document.getElementById('app-title').innerText = "Trang chủ Môn học";
+    // 1. [NÂNG CẤP]: Quét và ẨN TẤT CẢ các màn hình (kể cả những màn hình mới thêm sau này)
+    document.querySelectorAll('.screen').forEach(function(screen) { 
+        screen.classList.add('hidden'); 
+    });
+    
+    // 2. Chỉ HIỆN DUY NHẤT màn hình Trang chủ
+    const homeScreen = document.getElementById('screen-home');
+    if (homeScreen) homeScreen.classList.remove('hidden');
+
+    const appTitle = document.getElementById('app-title');
+    if (appTitle) appTitle.innerText = "Trang chủ Môn học";
+    
     const grid = document.getElementById('subject-list');
-    grid.innerHTML = "";
+    if (grid) grid.innerHTML = "";
     
     let subjectCount = 0;
     let quizCount = 0;
     
+    // 3. Vòng lặp render môn học của em (GIỮ NGUYÊN)
     for (const subject in db) {
-    // [ĐÃ BỔ SUNG] Bỏ qua các mục hệ thống ngầm, không in ra màn hình Môn học
-    if (subject === "Vocabulary" || subject === "Documents" || subject === "TopicPasswords" || subject === "FocusMusic") continue;
+        // Bỏ qua các mục hệ thống ngầm
+        if (subject === "Vocabulary" || subject === "Documents" || subject === "TopicPasswords" || subject === "FocusMusic") continue;
 
-    // 🔒 Lính gác bảo vệ dữ liệu:
-    if (!Array.isArray(db[subject])) {
-        console.warn(`⚠️ Dữ liệu môn "${subject}" không đúng định dạng, bỏ qua.`);
-        continue; 
-    }
+        // 🔒 Lính gác bảo vệ dữ liệu:
+        if (!Array.isArray(db[subject])) {
+            console.warn(`⚠️ Dữ liệu môn "${subject}" không đúng định dạng, bỏ qua.`);
+            continue; 
+        }
 
-    subjectCount++;
-    quizCount += db[subject].length; // Đếm tổng số đề thi
+        subjectCount++;
+        quizCount += db[subject].length; // Đếm tổng số đề thi
         
         const div = document.createElement('div');
         div.className = 'subject-card';
@@ -305,16 +303,16 @@ function goHome() {
             </button>
         `;
         div.onclick = (e) => { if (!e.target.closest('.delete-subject-btn')) openSubject(subject); };
-        grid.appendChild(div);
+        if (grid) grid.appendChild(div);
     }
     
-    // Cập nhật thống kê lên Banner
+    // 4. Cập nhật thống kê lên Banner (GIỮ NGUYÊN)
     const elSubCount = document.getElementById('total-subjects-count');
     const elQuizCount = document.getElementById('total-quizzes-count');
     if(elSubCount) elSubCount.innerText = subjectCount;
     if(elQuizCount) elQuizCount.innerText = quizCount;
     
-    // Lời chào theo thời gian thực
+    // 5. Lời chào theo thời gian thực (GIỮ NGUYÊN)
     const hour = new Date().getHours();
     let greeting = "Chào buổi sáng";
     if (hour >= 12 && hour < 18) greeting = "Chào buổi chiều";
@@ -324,7 +322,8 @@ function goHome() {
     const elGreeting = document.getElementById('welcome-greeting');
     if(elGreeting) elGreeting.innerText = `${greeting}, ${name}! 👋`;
 
-    showScreen('screen-home');
+    // Đặt lại trạng thái nếu học sinh đang làm bài dở
+    isTestMode = false; 
 }
 
 function deleteSubject(subjectName, event) {
@@ -954,7 +953,10 @@ function renderQuestion() {
         splitWrapper.appendChild(leftCol); splitWrapper.appendChild(rightCol); optsContainer.appendChild(splitWrapper);
     }
     else if (q.type === "writing") {
-        document.getElementById('question-content').innerHTML = formatText(q.content); document.getElementById('question-content').classList.remove('hidden');
+        // THÊM NÚT BOOKMARK CHO CÂU TỰ LUẬN
+var starBtnHTML = `<button onclick='toggleBookmark(${JSON.stringify(q).replace(/'/g, "&#39;")})' style='background: none; border: none; font-size: 22px; cursor: pointer; float: right; margin-top: -5px;' title='Lưu câu hỏi khó'>⭐️</button>`;
+document.getElementById('question-content').innerHTML = starBtnHTML + formatText(q.content);
+document.getElementById('question-content').classList.remove('hidden');
         
         const wrapper = document.createElement('div'); wrapper.style.width = "100%";
         const textarea = document.createElement('textarea');
@@ -992,7 +994,10 @@ function renderQuestion() {
         }
     }
     else if (q.type === "short-answer") {
-        document.getElementById('question-content').innerHTML = formatText(q.content); document.getElementById('question-content').classList.remove('hidden');
+        // THÊM NÚT BOOKMARK CHO CÂU TRẢ LỜI NGẮN
+var starBtnHTML = `<button onclick='toggleBookmark(${JSON.stringify(q).replace(/'/g, "&#39;")})' style='background: none; border: none; font-size: 22px; cursor: pointer; float: right; margin-top: -5px;' title='Lưu câu hỏi khó'>⭐️</button>`;
+document.getElementById('question-content').innerHTML = starBtnHTML + formatText(q.content);
+document.getElementById('question-content').classList.remove('hidden');
         
         const wrapper = document.createElement('div'); wrapper.style.width = "100%";
         const input = document.createElement('input'); input.type = "text"; input.id = "short-answer-input"; input.placeholder = "Nhập đáp án của bạn...";
@@ -1016,7 +1021,10 @@ function renderQuestion() {
         setTimeout(() => document.getElementById('short-answer-input').focus(), 100);
     }
     else if (q.type === "cluster-tf") {
-        document.getElementById('question-content').innerHTML = formatText(q.content); document.getElementById('question-content').classList.remove('hidden');
+        // THÊM NÚT BOOKMARK CHO CỤM CÂU ĐÚNG/SAI
+var starBtnHTML = `<button onclick='toggleBookmark(${JSON.stringify(q).replace(/'/g, "&#39;")})' style='background: none; border: none; font-size: 22px; cursor: pointer; float: right; margin-top: -5px;' title='Lưu câu hỏi khó'>⭐️</button>`;
+document.getElementById('question-content').innerHTML = starBtnHTML + formatText(q.content);
+document.getElementById('question-content').classList.remove('hidden');
         if (!isTestMode) clusterSelections = new Array(q.statements.length).fill(null);
 
         q.statements.forEach((stmt, index) => {
@@ -1048,7 +1056,10 @@ function renderQuestion() {
         }
     } 
     else {
-        document.getElementById('question-content').innerHTML = formatText(q.content); document.getElementById('question-content').classList.remove('hidden');
+        // THÊM NÚT BOOKMARK CHO CÂU TRẮC NGHIỆM
+var starBtnHTML = `<button onclick='toggleBookmark(${JSON.stringify(q).replace(/'/g, "&#39;")})' style='background: none; border: none; font-size: 22px; cursor: pointer; float: right; margin-top: -5px;' title='Lưu câu hỏi khó'>⭐️</button>`;
+document.getElementById('question-content').innerHTML = starBtnHTML + formatText(q.content);
+document.getElementById('question-content').classList.remove('hidden');
 
         let displayOptions = [...q.options];
         if (!isTestMode && displayOptions.length > 2) {
@@ -5403,4 +5414,190 @@ function insertBuiltQuestion() {
     // Chuyển về màn hình Soạn Nhanh để xem kết quả và cuộn xuống dưới cùng
     switchComposeMode('raw');
     rawTextArea.scrollTop = rawTextArea.scrollHeight;
+}
+
+// =========================================================================
+// HỆ THỐNG BOOKMARK CÁ NHÂN (MỚI THÊM)
+// =========================================================================
+
+// 1. Tải danh sách câu hỏi khó từ Google Sheets về máy khi đăng nhập thành công
+async function fetchUserBookmarks(username) {
+    try {
+        // NHỚ ĐỔI "CLOUD_API_URL" thành đường dẫn Web App của em
+        let response = await fetch("CLOUD_API_URL", { 
+            method: 'POST',
+            body: JSON.stringify({ action: 'get_bookmarks', username: username })
+        });
+        let bookmarkedQuestions = await response.json();
+        
+        if (!db.Bookmarks) db.Bookmarks = [];
+        db.Bookmarks = bookmarkedQuestions;
+        localStorage.setItem('myStudyData', JSON.stringify(db)); 
+        console.log("Đã tải xong kho câu hỏi khó cá nhân!");
+    } catch (e) {
+        console.log("Lỗi tải dữ liệu bookmark: ", e);
+        db.Bookmarks = [];
+    }
+}
+
+// 2. Thêm hoặc xóa câu hỏi khỏi danh sách câu khó khi bấm nút ⭐️
+function toggleBookmark(questionObj) {
+    // Lấy tên tài khoản đang đăng nhập từ hệ thống của em
+    var currentUser = localStorage.getItem('currentLoggedInUser') || (window.currentUser ? window.currentUser.username : ""); 
+    
+    if (!currentUser) {
+        alert("Bạn cần đăng nhập để lưu câu hỏi khó!");
+        return;
+    }
+
+    if (!db.Bookmarks) db.Bookmarks = [];
+
+    // Kiểm tra xem câu hỏi này đã tồn tại trong danh sách chưa (so sánh nội dung chữ)
+    var existsIndex = db.Bookmarks.findIndex(function(q) {
+        return q.content === questionObj.content;
+    });
+
+    if (existsIndex === -1) {
+        // Nếu chưa có -> Thêm vào mảng
+        db.Bookmarks.push(questionObj);
+        alert("Đã lưu vào danh sách câu hỏi khó! ⭐️");
+    } else {
+        // Nếu đã có -> Xóa khỏi mảng (bỏ đánh dấu)
+        db.Bookmarks.splice(existsIndex, 1);
+        alert("Đã bỏ lưu câu hỏi này!");
+    }
+
+    // Lưu ngay lập tức vào localStorage để giao diện mượt mà không bị delay
+    localStorage.setItem('myStudyData', JSON.stringify(db));
+
+    // Đồng bộ ngầm dữ liệu lên Google Sheets (Học sinh không phải chờ)
+    fetch("CLOUD_API_URL", { 
+        method: 'POST',
+        body: JSON.stringify({ 
+            action: 'update_bookmarks', 
+            username: currentUser, 
+            bookmarks: db.Bookmarks 
+        })
+    }).catch(function(err) {
+        console.log("Lỗi đồng bộ ngầm Bookmark lên bộ nhớ đám mây: ", err);
+    });
+}
+
+// Hàm chuyển sang màn hình xem câu hỏi khó
+function openBookmarkScreen() {
+    // Ẩn tất cả các màn hình khác
+    document.querySelectorAll('.screen').forEach(function(s) { s.classList.add('hidden'); });
+    // Hiển thị màn hình bookmark
+    document.getElementById('screen-bookmarks').classList.remove('hidden');
+    document.getElementById('app-title').innerText = "Kho Câu Hỏi Khó";
+    
+    // Chạy hàm nạp dữ liệu câu hỏi ra giao diện
+    renderBookmarksList();
+}
+
+// Hàm render danh sách câu hỏi đã lưu thành các thẻ bento đẹp mắt
+// Hàm render danh sách câu hỏi đã lưu thành các thẻ bento đẹp mắt
+function renderBookmarksList() {
+    var container = document.getElementById('bookmarks-list');
+    container.innerHTML = '';
+    
+    // Nếu chưa có câu nào được lưu
+    if (!db.Bookmarks || db.Bookmarks.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; color: var(--text-muted); padding: 50px 20px; background: var(--card-bg-elevated); border-radius: 16px; border: 1px dashed var(--border-color);">
+                <div style="font-size: 40px; margin-bottom: 10px;">🍃</div>
+                <p style="margin: 0; font-weight: 600;">Em chưa lưu câu hỏi khó nào cả!</p>
+                <p style="font-size: 13px; margin-top: 5px;">Hãy bấm biểu tượng ⭐️ khi làm bài tập để lưu các câu hỏi cần ôn lại nhé.</p>
+            </div>`;
+        return;
+    }
+    
+    // Duyệt qua từng câu hỏi trong kho lưu trữ
+    db.Bookmarks.forEach(function(q, index) {
+        var card = document.createElement('div');
+        card.className = 'quiz-item'; 
+        card.style.flexDirection = 'column';
+        card.style.alignItems = 'flex-start';
+        card.style.gap = '12px';
+        
+        var contentText = q.content || q.text || "Câu hỏi không có nội dung";
+        var answerText = "";
+
+        // 1. XỬ LÝ ĐẶC BIỆT CHO CÂU ĐÚNG/SAI
+        if (q.type === "cluster-tf" && q.statements) {
+            var labelsTF = ['a', 'b', 'c', 'd', 'e', 'f'];
+            
+            // Nối thêm các mệnh đề a, b, c, d vào bên dưới câu hỏi để dễ đọc
+            var stmtsHtml = q.statements.map(function(stmt, i) {
+                return "<br><b>" + labelsTF[i] + ")</b> " + cleanOpt(stmt.text);
+            }).join("");
+            contentText += stmtsHtml;
+            
+            // Lấy đáp án Đúng/Sai của từng mệnh đề
+            var tfAnswers = q.statements.map(function(stmt, i) {
+                return "<b>" + labelsTF[i] + ")</b> " + (stmt.isTrue ? "Đúng" : "Sai");
+            });
+            answerText = tfAnswers.join(" &nbsp;&nbsp;|&nbsp;&nbsp; ");
+        } 
+        
+        // 2. XỬ LÝ ĐẶC BIỆT CHO CÂU CHÙM ĐỌC HIỂU
+        else if (q.type === "reading-cluster" && q.questions) {
+            if (q.context) contentText = q.context + "<br><br>" + contentText;
+            
+            // Hiện danh sách các câu hỏi con
+            var subQsHtml = q.questions.map(function(subQ, i) {
+                return "<br><b>Câu " + (i+1) + ":</b> " + cleanOpt(subQ.content);
+            }).join("");
+            contentText += subQsHtml;
+
+            // Hiện danh sách đáp án của các câu hỏi con
+            var readingAnswers = q.questions.map(function(subQ, i) {
+                return "<b>Câu " + (i+1) + ":</b> " + cleanOpt(subQ.correctAnswer || "Tự luận");
+            });
+            answerText = readingAnswers.join(" <br> ");
+        } 
+        
+        // 3. CÁC CÂU TRẮC NGHIỆM ABCD / TRẢ LỜI NGẮN BÌNH THƯỜNG
+        else {
+            answerText = cleanOpt(q.correctAnswer || "Tự luận / Trả lời ngắn");
+        }
+        
+        card.innerHTML = `
+            <div style="width: 100%; display: flex; justify-content: space-between; align-items: flex-start; gap: 15px;">
+                <div style="font-size: 16px; font-weight: 700; color: var(--text-main); text-align: justify; word-break: break-word;">
+                    <span style="color: #f59e0b; margin-right: 5px;">#${index + 1}</span> ${formatText(contentText)}
+                </div>
+                <button onclick="removeBookmarkDirect(${index})" class="btn" style="padding: 6px 12px; background: rgba(239, 68, 68, 0.1); color: var(--danger); border: 1px solid rgba(239, 68, 68, 0.2); font-size: 12px; box-shadow: none; flex-shrink: 0;" title="Xóa khỏi danh sách">❌ Xóa</button>
+            </div>
+            <div style="font-size: 15px; line-height: 1.6; color: var(--text-main); background: var(--bg-main); padding: 12px 15px; border-radius: 8px; width: 100%; box-sizing: border-box; border: 1px solid var(--border-color); margin-top: 5px;">
+                🔑 <strong style="color: var(--success);">Đáp án đúng:</strong> <br>${formatText(answerText)}
+            </div>
+        `;
+        container.appendChild(card);
+    });
+
+    // Kích hoạt MathJax để vẽ công thức Toán học nếu có
+    if (typeof MathJax !== 'undefined' && MathJax.typesetPromise) {
+        MathJax.typesetPromise([container]).catch(function(err) { console.log(err); });
+    }
+}
+
+// Hàm hỗ trợ xóa nhanh câu hỏi ra khỏi danh sách ngay tại giao diện xem lại
+function removeBookmarkDirect(index) {
+    if (!confirm("Em muốn xóa câu hỏi này khỏi danh sách câu hỏi khó?")) return;
+    
+    db.Bookmarks.splice(index, 1);
+    localStorage.setItem('myStudyData', JSON.stringify(db));
+    
+    // Tải lại giao diện sau khi xóa
+    renderBookmarksList();
+    
+    // Đồng bộ lệnh xóa ngầm lên Google Sheets
+    var currentUser = localStorage.getItem('currentLoggedInUser') || "";
+    if (currentUser) {
+        fetch(CLOUD_API_URL, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'update_bookmarks', username: currentUser, bookmarks: db.Bookmarks })
+        }).catch(function(err) { console.log("Lỗi đồng bộ xóa: ", err); });
+    }
 }
