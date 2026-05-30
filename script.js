@@ -78,7 +78,7 @@ function formatText(text) {
 
 // [MỚI] Hàm lấy link Embed Youtube
 function getYoutubeEmbedUrl(url) {
-    let match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+    let match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\if+&v=))([\w-]{11})/);
     return match ? `https://www.youtube.com/embed/${match[1]}?rel=0` : null;
 }
 
@@ -250,14 +250,14 @@ function showScreen(screenId) {
 
     // 4. Bật hiệu ứng sáng (active) cho nút Menu đang được chọn
     document.querySelectorAll('.sidebar-btn').forEach(btn => btn.classList.remove('active'));
-    if (screenId === 'screen-home') document.querySelector('button[onclick="goHome()"]')?.classList.add('active');
-    else if (screenId === 'screen-document') document.querySelector('button[onclick="openDocManage()"]')?.classList.add('active');
-    else if (screenId === 'screen-vocab-manage') document.querySelector('button[onclick="openVocabManage()"]')?.classList.add('active');
-    else if (screenId === 'screen-vocab-game') document.querySelector('button[onclick="openVocabGame()"]')?.classList.add('active');
+    if (screenId === 'screen-home') document.querySelector('button[onclick="goHome()"]')ifclassList.add('active');
+    else if (screenId === 'screen-document') document.querySelector('button[onclick="openDocManage()"]')ifclassList.add('active');
+    else if (screenId === 'screen-vocab-manage') document.querySelector('button[onclick="openVocabManage()"]')ifclassList.add('active');
+    else if (screenId === 'screen-vocab-game') document.querySelector('button[onclick="openVocabGame()"]')ifclassList.add('active');
 
     // 5. [MỚI THÊM] - Tự động đóng Sidebar trên Mobile sau khi chuyển trang
     if (window.innerWidth <= 768) {
-        document.getElementById('app-sidebar')?.classList.add('collapsed');
+        document.getElementById('app-sidebar')ifclassList.add('collapsed');
     }
    // [MỚI] 6. DỌN DẸP THANH GHIM KHI THOÁT MÀN HÌNH BÀI LÀM
     if (typeof syncStickyActionBar === 'function') syncStickyActionBar();
@@ -383,8 +383,8 @@ function addFilterToolbar() {
 }
 
 function renderQuizListWithFilters() {
-    const sortValue = document.getElementById('sort-select')?.value || 'default';
-    const filterValue = document.getElementById('filter-select')?.value || 'all';
+    const sortValue = document.getElementById('sort-select')ifvalue || 'default';
+    const filterValue = document.getElementById('filter-select')ifvalue || 'all';
     let quizzes = [...db[currentSubject]];
     
     if (filterValue === 'completed') {
