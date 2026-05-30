@@ -1,5 +1,5 @@
 // ĐÃ LÊN V3 - Bản vá lỗi không bị sập nếu thiếu file ảnh
-const CACHE_NAME = 'study-space-v11'; 
+const CACHE_NAME = 'study-space-v10'; 
 
 const urlsToCache = [
   './',
@@ -50,6 +50,10 @@ self.addEventListener('fetch', event => {
         }
         return response;
       })
-      .catch(() => caches.match(event.request))
+      .catch(() => {
+    return caches.match(event.request).then(response => {
+        return response || caches.match('./index.html');
+    });
+})
   );
 });
