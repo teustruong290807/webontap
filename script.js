@@ -72,9 +72,11 @@ function formatText(text) {
     // 2. Tự động in đậm riêng chữ "Câu X:", "Question X:", "Bài X:" ở đầu dòng
     result = result.replace(/^(Câu|Question|Bài)\s*\d+(?:\s*[\-\–\—]\s*\d+)?[\.\:\-]?/gim, '<b>$&</b>');
     
-    // 3. Xử lý Ảnh, Audio và Xuống dòng
+    // 3. Xử lý Ảnh, PDF, Audio và Xuống dòng
     result = result
         .replace(/\[IMG:\s*(https?:\/\/[^\]]+)\]/gi, '<br><img src="$1" style="max-width: 100%; border-radius: 8px; margin: 15px 0;"/><br>')
+        // Dòng xử lý PDF mới thêm vào đây:
+        .replace(/\[PDF:\s*(https?:\/\/[^\]]+)\]/gi, '<br><iframe src="$1" style="width: 100%; height: 75vh; border-radius: 12px; border: 1px solid var(--border-color); background: #fff; box-shadow: 0 4px 20px rgba(0,0,0,0.05);" frameborder="0"></iframe><br>')
         .replace(/\[AUDIO:\s*(https?:\/\/[^\]]+)\]/gi, '<br><audio controls style="width: 100%; outline: none; border-radius: 8px; background-color: rgba(0,0,0,0.05); margin: 15px 0;"><source src="$1" type="audio/mpeg">Trình duyệt không hỗ trợ phát âm thanh.</audio><br>')
         .replace(/\n/g, '<br>');
         
@@ -653,7 +655,8 @@ function parseTextToJSON(text) {
         else { groupedParsed.push(currentGroup); }
     }
     return groupedParsed;}
-/* ==========================================
+
+    /* ==========================================
    4. QUẢN LÝ DỮ LIỆU
 ========================================== */
 function saveNewQuiz() {
@@ -664,7 +667,31 @@ function saveNewQuiz() {
     // [MỚI] Lưu Link Youtube
     const ytLink = document.getElementById('quiz-youtube-link').value.trim();
     
-    const rawText = document.getElementById('raw-text').value;
+    // LƯU Ý: Đã đổi const thành let để có thể thay đổi nội dung bên trong
+    let rawText = document.getElementById('raw-text').value;
+
+    // ==========================================
+    // BẮT ĐẦU ĐOẠN CODE THÊM MỚI: TỰ ĐỘNG SINH CÂU HỎI
+    // ==========================================
+    rawText = rawText.replace(/\[FAST-KEYS:\s*(.+?)\]/gi, function(match, keys) {
+        // Lọc bỏ mọi khoảng trắng, dấu phẩy, chỉ giữ lại a,b,c,d và viết hoa
+        let cleanKeys = keys.replace(/[^a-dA-D]/gi, '').toUpperCase();
+        let generatedText = "";
+        
+        for (let i = 0; i < cleanKeys.length; i++) {
+            let ans = cleanKeys[i];
+            generatedText += `Câu ${i + 1}:\n`;
+            // Tự động tạo 4 phương án, đánh dấu * vào đáp án đúng
+            // Chữ A, B, C, D ngắn gọn để giao diện thành các nút tròn như phiếu trắc nghiệm
+            ['A', 'B', 'C', 'D'].forEach(char => {
+                generatedText += (char === ans ? '*' : '') + `${char}. ${char}\n`;
+            });
+        }
+        return generatedText;
+    });
+    // ==========================================
+    // KẾT THÚC ĐOẠN CODE THÊM MỚI
+    // ==========================================
     
     if (!title) { alert("Vui lòng nhập tên bài tập!"); return; }
     const questions = parseTextToJSON(rawText);
