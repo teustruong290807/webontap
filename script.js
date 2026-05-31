@@ -52,13 +52,29 @@ function getQueryParams() {
     };
 }
 
-function cleanOpt(text) {
-    if (!text) return "";
-    return text.replace(/^\*/, '')
-               .replace(/<\/?u>/gi, '')
-               .replace(/<\/?b>/gi, '')
-               .replace(/^[a-d][\.\)]\s*/i, '')
-               .trim();
+function cleanOpt(opt) {
+    if (!opt) return "";
+    
+    // 1. Tìm chữ cái A, B, C, D (gom trọn nhóm kể cả khi bị dính dấu * ở đằng trước)
+    // Ví dụ: Bắt được cả "A.", "*A.", " * B)"
+    let prefixMatch = opt.match(/^[\*]?\s*([A-Za-z])[\.\:\-\)]\s*/);
+    
+    // 2. Gọt bỏ hoàn toàn phần mào đầu này
+    let cleaned = opt.replace(/^[\*]?\s*[A-Za-z][\.\:\-\)]\s*/, '').trim();
+    
+    // 3. XỬ LÝ RIÊNG CHO PHIẾU TRẮC NGHIỆM
+    if (cleaned.includes("bubble-opt") && prefixMatch) {
+        let letter = prefixMatch[1].toUpperCase(); // Trích xuất đúng 1 chữ cái A, B, C hoặc D
+        // Trả lại một cái nút tròn chứa duy nhất 1 chữ cái ở giữa
+        return `<span class="bubble-opt" data-key="${letter}">${letter}</span>`;
+    }
+    
+    // 4. Xử lý cho các đề dạng khác (Nếu lỡ còn dính dấu * thì gọt nốt)
+    if (cleaned.startsWith('*')) {
+        cleaned = cleaned.substring(1).trim();
+    }
+    
+    return cleaned;
 }
 
 function formatText(text) {
@@ -1467,22 +1483,29 @@ function renderSingleQuestionResult(q) {
         if (q.options && q.options.length > 0) {
             h += `<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">`;
             
-            // [MỚI] Mảng lưu trữ chữ cái A, B, C, D
             const labelsResult = ['A', 'B', 'C', 'D', 'E', 'F']; 
             
-            // [MỚI] Thêm (opt, idx) để lấy số thứ tự
             q.options.forEach((opt, idx) => { 
                 let cleanO = cleanOpt(opt); 
-                let isCorrectOpt = cleanO === cleanOpt(q.correctAnswer); 
-                let isSelected = q.userAnswer && cleanOpt(q.userAnswer) === cleanO;
+                let isCorrectOpt = false;
+                let isSelected = false;
+
+                // [FIX LỖI XANH HẾT] Nhận diện thông minh:
+                // Nếu là phiếu trắc nghiệm (FAST-KEYS), so sánh chuỗi gốc chưa gọt để phân biệt được A, B, C, D
+                if (cleanO.includes('bubble-opt')) {
+                    isCorrectOpt = opt.trim() === (q.correctAnswer || '').trim();
+                    isSelected = q.userAnswer && opt.trim() === q.userAnswer.trim();
+                } else {
+                    // Nếu là đề thường, dùng thuật toán gọt chữ như cũ
+                    isCorrectOpt = cleanO === cleanOpt(q.correctAnswer);
+                    isSelected = q.userAnswer && cleanOpt(q.userAnswer) === cleanO;
+                }
                 
-                // [FIX MÀU NỀN] Chuyển đổi khối đáp án để không bị đục
                 let bg = "var(--card-bg-elevated)"; let border = "1px solid var(--border-color)"; let color = "var(--text-main)";
                 
                 if (isCorrectOpt) { bg = "rgba(22, 163, 74, 0.1)"; border = "2px solid var(--success)"; color = "var(--success)"; } 
                 else if (isSelected && !isCorrectOpt) { bg = "rgba(239, 68, 68, 0.1)"; border = "2px solid var(--danger)"; color = "var(--danger)"; }
                 
-                // [MỚI] Kiểm tra nếu là nút tròn thì in to chữ A B C D ra giữa, ngược lại in chữ A. B. C. D. ở đầu câu
                 let displayHTML = cleanO.includes('bubble-opt') 
                     ? `<div style="text-align: center; font-size: 18px; font-weight: 900;">${labelsResult[idx] || ''}</div>` 
                     : `<strong style="margin-right: 5px;">${labelsResult[idx] || ''}.</strong> ${cleanO}`;
