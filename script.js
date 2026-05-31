@@ -667,11 +667,10 @@ function saveNewQuiz() {
     // [MỚI] Lưu Link Youtube
     const ytLink = document.getElementById('quiz-youtube-link').value.trim();
     
-    // LƯU Ý: Đã đổi const thành let để có thể thay đổi nội dung bên trong
     let rawText = document.getElementById('raw-text').value;
 
     // ==========================================
-    // BẮT ĐẦU ĐOẠN CODE THÊM MỚI: TỰ ĐỘNG SINH CÂU HỎI
+    // BẮT ĐẦU ĐOẠN CODE TỰ ĐỘNG SINH CÂU HỎI
     // ==========================================
     rawText = rawText.replace(/\[FAST-KEYS:\s*(.+?)\]/gi, function(match, keys) {
         // Lọc bỏ mọi khoảng trắng, dấu phẩy, chỉ giữ lại a,b,c,d và viết hoa
@@ -681,16 +680,15 @@ function saveNewQuiz() {
         for (let i = 0; i < cleanKeys.length; i++) {
             let ans = cleanKeys[i];
             generatedText += `Câu ${i + 1}:\n`;
-            // Tự động tạo 4 phương án, đánh dấu * vào đáp án đúng
-            // Chữ A, B, C, D ngắn gọn để giao diện thành các nút tròn như phiếu trắc nghiệm
+            // Chèn thẻ <span class="bubble-opt"></span> để CSS bắt tín hiệu biến thành nút tròn
             ['A', 'B', 'C', 'D'].forEach(char => {
-                generatedText += (char === ans ? '*' : '') + `${char}. ${char}\n`;
+                generatedText += (char === ans ? '*' : '') + `${char}. <span class="bubble-opt"></span>\n`;
             });
         }
         return generatedText;
     });
     // ==========================================
-    // KẾT THÚC ĐOẠN CODE THÊM MỚI
+    // KẾT THÚC ĐOẠN CODE TỰ ĐỘNG SINH CÂU HỎI
     // ==========================================
     
     if (!title) { alert("Vui lòng nhập tên bài tập!"); return; }
