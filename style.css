@@ -624,3 +624,62 @@ iframe[src*="drive.google.com"] {
         border-radius: 12px;
     }
 }
+
+/* ==========================================================================
+   TỐI ƯU GIAO DIỆN CHIA ĐÔI MÀN HÌNH (ĐỀ PDF TRÁI - ĐÁP ÁN PHẢI)
+   Bao gồm: Trắc nghiệm (Nút tròn ABCD), Đúng/Sai (Nút Đ/S), Trả lời ngắn
+========================================================================== */
+/* 1. Mở rộng khung PDF (65%), thu hẹp khung đáp án (35%) */
+.split-left { flex: 6.5 !important; max-height: 75vh; overflow-y: auto; padding-right: 15px; }
+.split-right { flex: 3.5 !important; max-height: 75vh; overflow-y: auto; padding-right: 10px; }
+
+/* 2. DẠNG 1: TRẮC NGHIỆM A B C D (Phiếu Bubble Sheet) */
+.sub-question-block:has(.bubble-opt) {
+    display: flex; align-items: center; background: transparent; padding: 8px 0;
+    border: none; border-bottom: 1px dashed var(--border-color); border-radius: 0; margin-bottom: 8px;
+}
+.sub-question-block:has(.bubble-opt) .sub-question-content { margin-bottom: 0; margin-right: 15px; min-width: 65px; font-size: 16px; }
+.sub-question-block:has(.bubble-opt) .sub-question-content p { margin: 0; }
+.sub-option-btn:has(.bubble-opt) {
+    width: 44px !important; height: 44px !important; border-radius: 50% !important; padding: 0 !important;
+    margin-bottom: 0 !important; margin-right: 10px !important; display: inline-flex !important;
+    justify-content: center !important; align-items: center !important; flex: none !important; border-width: 2px;
+}
+.sub-option-btn:has(.bubble-opt) span:first-child { margin-right: 0 !important; font-size: 16px; }
+
+/* 3. DẠNG 2: ĐÚNG / SAI (Chuyển thành nút tròn Đ / S xếp hàng ngang) */
+.split-right .tf-statement-row {
+    flex-direction: row !important; align-items: center !important; padding: 8px 0 !important;
+    background: transparent !important; border: none !important; border-bottom: 1px dashed var(--border-color) !important;
+    border-radius: 0 !important; box-shadow: none !important; margin-bottom: 8px !important;
+}
+.split-right .tf-text { min-width: 65px; font-size: 16px !important; margin-bottom: 0 !important; font-weight: bold; }
+.split-right .tf-text p { margin: 0; }
+.split-right .tf-actions { display: flex; gap: 10px; width: auto !important; flex-shrink: 0; }
+.split-right .tf-btn {
+    width: 44px !important; height: 44px !important; padding: 0 !important; border-radius: 50% !important;
+    display: inline-flex !important; justify-content: center !important; align-items: center !important;
+    font-size: 16px !important; border-width: 2px !important; flex: none !important;
+}
+/* Biến chữ "Đúng" thành "Đ", "Sai" thành "S" cho giống phiếu trắc nghiệm */
+.split-right .tf-btn.btn-true::before { content: 'Đ'; font-weight: bold; }
+.split-right .tf-btn.btn-false::before { content: 'S'; font-weight: bold; }
+.split-right .tf-btn span { display: none; } /* Giấu chữ gốc đi */
+
+/* 4. DẠNG 3: TRẢ LỜI NGẮN (Biến thành ô nhập liệu nhỏ xinh bo tròn) */
+.split-right #question-content:has(input[type="text"]), .split-right .short-answer-container {
+    display: flex; align-items: center; padding: 8px 0; border: none; border-bottom: 1px dashed var(--border-color);
+    background: transparent; margin-bottom: 8px; border-radius: 0; box-shadow: none; justify-content: space-between;
+}
+.split-right input[type="text"] {
+    margin-bottom: 0 !important; padding: 10px 15px !important; border-radius: 20px !important;
+    border: 2px solid var(--border-color) !important; background: var(--card-bg) !important;
+    text-align: center; font-weight: bold; font-size: 16px; width: 140px !important; transition: all 0.2s;
+}
+.split-right input[type="text"]:focus { border-color: var(--primary) !important; width: 170px !important; }
+
+/* 5. DÀNH CHO ĐIỆN THOẠI: Trả lại tỉ lệ 100% cho 2 khung (Đề ở trên, đáp án ở dưới) */
+@media (max-width: 850px) {
+    .split-left { flex: 1 !important; max-height: 45vh !important; }
+    .split-right { flex: 1 !important; max-height: none !important; }
+}
