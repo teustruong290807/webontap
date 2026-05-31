@@ -1466,17 +1466,28 @@ function renderSingleQuestionResult(q) {
 
         if (q.options && q.options.length > 0) {
             h += `<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px;">`;
-            q.options.forEach(opt => {
+            
+            // [MỚI] Mảng lưu trữ chữ cái A, B, C, D
+            const labelsResult = ['A', 'B', 'C', 'D', 'E', 'F']; 
+            
+            // [MỚI] Thêm (opt, idx) để lấy số thứ tự
+            q.options.forEach((opt, idx) => { 
                 let cleanO = cleanOpt(opt); 
                 let isCorrectOpt = cleanO === cleanOpt(q.correctAnswer); 
                 let isSelected = q.userAnswer && cleanOpt(q.userAnswer) === cleanO;
+                
                 // [FIX MÀU NỀN] Chuyển đổi khối đáp án để không bị đục
                 let bg = "var(--card-bg-elevated)"; let border = "1px solid var(--border-color)"; let color = "var(--text-main)";
                 
                 if (isCorrectOpt) { bg = "rgba(22, 163, 74, 0.1)"; border = "2px solid var(--success)"; color = "var(--success)"; } 
                 else if (isSelected && !isCorrectOpt) { bg = "rgba(239, 68, 68, 0.1)"; border = "2px solid var(--danger)"; color = "var(--danger)"; }
                 
-                h += `<div style="padding: 12px; border-radius: 8px; background: ${bg}; border: ${border}; color: ${color}; font-weight: 500;">${cleanO}</div>`;
+                // [MỚI] Kiểm tra nếu là nút tròn thì in to chữ A B C D ra giữa, ngược lại in chữ A. B. C. D. ở đầu câu
+                let displayHTML = cleanO.includes('bubble-opt') 
+                    ? `<div style="text-align: center; font-size: 18px; font-weight: 900;">${labelsResult[idx] || ''}</div>` 
+                    : `<strong style="margin-right: 5px;">${labelsResult[idx] || ''}.</strong> ${cleanO}`;
+
+                h += `<div style="padding: 12px; border-radius: 8px; background: ${bg}; border: ${border}; color: ${color}; font-weight: 500;">${displayHTML}</div>`;
             });
             h += `</div>`;
         } 
