@@ -603,3 +603,24 @@ input:checked + .toggle-slider:before { transform: translateX(20px); background-
     .compose-grid { grid-template-columns: 1fr; height: auto; }
     .compose-editor { min-height: 600px; }
 }
+
+/* ==========================================================================
+   LÀM ĐẸP CHO KHUNG NHÚNG PDF (CHIA ĐÔI MÀN HÌNH)
+========================================================================== */
+iframe[src*="drive.google.com"] {
+    width: 100%;
+    height: 75vh; /* Chiều cao chiếm 75% màn hình để vừa vặn tầm mắt */
+    border: 1px solid var(--border-color);
+    border-radius: 16px; /* Bo góc tròn trịa */
+    background-color: var(--card-bg);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03); /* Đổ bóng nhẹ nhàng cho sang trọng */
+    transition: all 0.3s ease;
+}
+
+/* Khi dùng trên điện thoại thì tự động co giãn chiều cao */
+@media (max-width: 768px) {
+    iframe[src*="drive.google.com"] {
+        height: 50vh;
+        border-radius: 12px;
+    }
+}
