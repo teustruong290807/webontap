@@ -2201,7 +2201,14 @@ function openVocabGame() {
             !v.en.includes('[object') && 
             !v.vi.includes('[object')
         );
-        localStorage.setItem('myStudyData', JSON.stringify(db));
+        
+        // --- ĐOẠN ĐƯỢC FIX LỖI CHO IPHONE TẠI ĐÂY ---
+        try {
+            localStorage.setItem('myStudyData', JSON.stringify(db));
+        } catch(e) {
+            console.log("iPhone chặn ghi LocalStorage, bỏ qua bước lưu rác.");
+        }
+        // ------------------------------------------
     }
 
     if (!db || !db.Vocabulary || db.Vocabulary.length < 4) { 
@@ -2231,7 +2238,11 @@ function openVocabGame() {
     if (topicCountEl) topicCountEl.innerText = topics.length;
 
     // Lấy kỷ lục điểm & streak hiển thị lên Bento
-    let records = JSON.parse(localStorage.getItem('vocabRecords')) || { maxScore: 0, maxStreak: 0 };
+    let records = { maxScore: 0, maxStreak: 0 };
+    try {
+        records = JSON.parse(localStorage.getItem('vocabRecords')) || { maxScore: 0, maxStreak: 0 };
+    } catch(e) {} // Bọc thêm try catch đọc kỷ lục cho an toàn
+    
     const maxScoreEl = document.getElementById('bento-max-score');
     const maxStreakEl = document.getElementById('bento-max-streak');
     if (maxScoreEl) maxScoreEl.innerText = records.maxScore;
@@ -2257,7 +2268,14 @@ function startVocabGame() {
     vSettings.autoTTS = ttsCheckbox ? ttsCheckbox.checked : false;
     vSettings.timer = timerCheckbox ? timerCheckbox.checked : true;
     vSettings.effects = effectsCheckbox ? effectsCheckbox.checked : true;
-    localStorage.setItem('vocabSettings', JSON.stringify(vSettings));
+    
+    // --- ĐOẠN ĐƯỢC FIX LỖI CHO IPHONE TẠI ĐÂY ---
+    try {
+        localStorage.setItem('vocabSettings', JSON.stringify(vSettings));
+    } catch(e) {
+        console.log("iPhone chặn ghi cài đặt game.");
+    }
+    // ------------------------------------------
 
     currentVocabTopic = selectedTopic;
     playingVocabPool = selectedTopic === 'ALL' ? db.Vocabulary : db.Vocabulary.filter(v => (v.topic || 'Chung') === selectedTopic);
@@ -4695,7 +4713,14 @@ function showIsolatedVocabMenu(topic) {
     const box = document.createElement('div');
     box.style.cssText = "background:var(--card-bg); padding:35px; border-radius:16px; border:1px solid var(--border-color); text-align:center; max-width:400px; width:90%; box-shadow:0 10px 25px rgba(0,0,0,0.9); animation: fadeInUp 0.4s ease;";
 
-    const savedName = localStorage.getItem('studentName') || "";
+    // --- ĐÃ FIX: Bọc try-catch khi đọc tên học sinh ---
+    let savedName = "";
+    try {
+        savedName = localStorage.getItem('studentName') || "";
+    } catch (e) {
+        console.log("iPhone chặn đọc localStorage, hiển thị như người dùng mới.");
+    }
+    // ------------------------------------------------
 
     // Xử lý logic hiển thị: Nếu chưa có tên thì bắt nhập, nếu có rồi thì hiển thị lời chào
     let nameSectionHtml = "";
@@ -4730,15 +4755,25 @@ function showIsolatedVocabMenu(topic) {
 
     // Hàm kiểm tra tên trước khi vào học
     const verifyAndContinue = () => {
-        if (!localStorage.getItem('studentName')) {
-            const inputName = document.getElementById('guest-name').value.trim();
-            if (!inputName) {
-                alert("⚠️ Vui lòng nhập tên của em nhé!");
-                document.getElementById('guest-name').focus();
-                return false;
+        // --- ĐÃ FIX: Chống crash khi kiểm tra và lưu tên ---
+        if (!savedName) {
+            const inputElement = document.getElementById('guest-name');
+            if (inputElement) {
+                const inputName = inputElement.value.trim();
+                if (!inputName) {
+                    alert("⚠️ Vui lòng nhập tên của em nhé!");
+                    inputElement.focus();
+                    return false;
+                }
+                try {
+                    localStorage.setItem('studentName', inputName);
+                } catch(e) {
+                    console.log("iPhone chặn lưu tên.");
+                }
             }
-            localStorage.setItem('studentName', inputName);
         }
+        // ------------------------------------------------
+        
         overlay.remove(); // Xóa bảng chọn mode để vào bài
         return true;
     };
