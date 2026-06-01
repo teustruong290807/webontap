@@ -683,3 +683,64 @@ iframe[src*="drive.google.com"] {
     .split-left { flex: 1 !important; max-height: 45vh !important; }
     .split-right { flex: 1 !important; max-height: none !important; }
 }
+
+/* ==========================================================================
+   TỰ ĐỘNG ÉP CHIA ĐÔI MÀN HÌNH CHO ĐÚNG/SAI & TRẢ LỜI NGẮN KHI CÓ PDF
+========================================================================== */
+
+/* 1. Kích hoạt Flexbox chia đôi khi nhận diện có iframe PDF */
+#screen-practice:has(#question-content iframe[src*="drive.google.com"]) {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    justify-content: space-between;
+}
+
+/* 2. Ép Tiêu đề và Nút điều hướng bung Full width 100% (nằm trên & dưới) */
+#screen-practice:has(#question-content iframe) > #practice-title,
+#screen-practice:has(#question-content iframe) > .quiz-instruction,
+#screen-practice:has(#question-content iframe) > .test-nav-grid,
+#screen-practice:has(#question-content iframe) > .action-group {
+    width: 100%;
+    margin-bottom: 15px;
+}
+
+/* 3. Khung Đề bài (chứa PDF) tự động thu lại 63% và dạt sang Trái */
+#screen-practice:has(#question-content iframe) > #question-content {
+    width: 63%;
+    max-height: 75vh;
+    overflow-y: auto;
+    padding-right: 20px;
+    box-sizing: border-box;
+    background: transparent;
+    border: none;
+    margin-bottom: 0;
+}
+
+/* 4. Khung Đáp án (Đúng/Sai, Trả lời ngắn) tự động thu lại 35% và dạt sang Phải */
+#screen-practice:has(#question-content iframe) > #options-container,
+#screen-practice:has(#question-content iframe) > .short-answer-container {
+    width: 35%;
+    max-height: 75vh;
+    overflow-y: auto;
+    box-sizing: border-box;
+    background: var(--card-bg);
+    padding: 20px;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-color);
+    margin-top: 0;
+}
+
+/* 5. Gọt bỏ khoảng trắng thừa của PDF để nhìn liền mạch hơn */
+#screen-practice:has(#question-content iframe) #question-content { padding: 0 !important; }
+
+/* 6. Trả lại giao diện dọc bình thường khi xem trên Điện thoại */
+@media (max-width: 850px) {
+    #screen-practice:has(#question-content iframe) > #question-content,
+    #screen-practice:has(#question-content iframe) > #options-container,
+    #screen-practice:has(#question-content iframe) > .short-answer-container {
+        width: 100%;
+        max-height: none;
+        padding-right: 0;
+    }
+}
