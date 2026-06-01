@@ -2317,10 +2317,15 @@ function exitVocabGame() {
         if (vScore > 0 || vMaxStreak > 0) {
             if (currentVocabTopic !== 'ALL') updateVocabRanking(currentVocabTopic, vScore, vMaxStreak);
             
-            let records = JSON.parse(localStorage.getItem('vocabRecords')) || { maxScore: 0, maxStreak: 0 };
-            if (vScore > records.maxScore) records.maxScore = vScore;
-            if (vMaxStreak > records.maxStreak) records.maxStreak = vMaxStreak;
-            localStorage.setItem('vocabRecords', JSON.stringify(records));
+            // [FIX LỖI IPHONE]: Bọc an toàn toàn bộ quá trình đọc/ghi kỷ lục
+            try {
+                let records = JSON.parse(localStorage.getItem('vocabRecords')) || { maxScore: 0, maxStreak: 0 };
+                if (vScore > records.maxScore) records.maxScore = vScore;
+                if (vMaxStreak > records.maxStreak) records.maxStreak = vMaxStreak;
+                localStorage.setItem('vocabRecords', JSON.stringify(records));
+            } catch (e) {
+                console.log("Safari ẩn danh chặn lưu kỷ lục lúc thoát.");
+            }
         }
         
         if (isIsolatedMode) {
@@ -2631,7 +2636,13 @@ function handleVocabAnswer(btnEl, selectedOpt) {
     }
 
     currentItem.lastPlayed = Date.now();
-    localStorage.setItem('myStudyData', JSON.stringify(db));
+    
+    // Bọc try...catch để chặn lỗi văng game
+    try {
+        localStorage.setItem('myStudyData', JSON.stringify(db));
+    } catch (e) {
+        console.log("Safari ẩn danh chặn lưu điểm, tạm bỏ qua bước này!");
+    }
     
     // GỌI BẢNG GIẢI THÍCH (Bất kể đúng hay sai)
     showVocabExplanation(isCorrect, btnEl === null);
@@ -2787,7 +2798,13 @@ function nextVocabQuestion() {
         let records = JSON.parse(localStorage.getItem('vocabRecords')) || { maxScore: 0, maxStreak: 0 };
         if (vScore > records.maxScore) records.maxScore = vScore;
         if (vMaxStreak > records.maxStreak) records.maxStreak = vMaxStreak;
-        localStorage.setItem('vocabRecords', JSON.stringify(records));
+        
+        // [FIX LỖI IPHONE]: Bọc try...catch để không sập khi lưu kỷ lục ở chế độ Ẩn danh
+        try {
+            localStorage.setItem('vocabRecords', JSON.stringify(records));
+        } catch (e) {
+            console.log("Safari ẩn danh chặn lưu kỷ lục.");
+        }
 
         document.getElementById('vocab-game-play-area').classList.add('hidden');
         document.getElementById('vocab-game-over').classList.remove('hidden');
