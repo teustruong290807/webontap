@@ -2448,48 +2448,105 @@ function generateVocabQuestion() {
     document.getElementById('vocab-options-container').style.pointerEvents = 'auto';
     
     let type, targetItem, questionText, correctAnswer, optionsArr, hint; let valid = false;
+    
     // [ĐÃ FIX]: Gom tất cả từ đơn, cụm từ (phrase) và collocations vào chung để tạo câu hỏi
     const words = playingVocabPool.filter(v => v.type !== 'structure'); 
     const structures = playingVocabPool.filter(v => v.type === 'structure');
     const hasSyn = words.some(w => w.syn && w.syn !== '-'); 
     const hasAnt = words.some(w => w.ant && w.ant !== '-');
+    
+    // [MỚI]: Đánh hơi xem trong kho có từ nào dùng ngoặc vuông [...] không
+    const clozeItems = playingVocabPool.filter(v => /\[.*?\]/.test(v.en));
+    const hasCloze = clozeItems.length > 0;
 
     let attempts = 0;
     while (!valid && attempts < 100) {
         attempts++; let rand = Math.random();
-        if (rand < 0.3) type = 'en_vi'; else if (rand < 0.6) type = 'vi_en'; else if (rand < 0.75 && hasSyn) type = 'synonym'; else if (rand < 0.85 && hasAnt) type = 'antonym'; else if (structures.length > 0) type = 'structure'; else type = 'en_vi'; 
         
-        if (type === 'structure' && structures.length > 0) {
-            targetItem = getSmartRandomWord(structures); questionText = `Cấu trúc nào có nghĩa là: "${targetItem.vi}"?`; correctAnswer = targetItem.en;
-            let pool = structures.length >= 4 ? structures : playingVocabPool; optionsArr = [correctAnswer, ...getRandomItems(pool, 3, targetItem).map(i => i.en)]; hint = "CẤU TRÚC"; valid = true;
-        } else if (words.length > 0) {
-            let validWords = words; if (type === 'synonym') validWords = words.filter(w => w.syn && w.syn !== '-'); if (type === 'antonym') validWords = words.filter(w => w.ant && w.ant !== '-'); if (validWords.length === 0) { type = 'en_vi'; validWords = words; }
+        // [MỚI]: Phân bổ lại tỉ lệ, dành 25% ra dạng đục lỗ nếu kho có data
+        if (rand < 0.25) type = 'en_vi'; 
+        else if (rand < 0.45) type = 'vi_en'; 
+        else if (rand < 0.65 && hasCloze) type = 'fill_blank'; 
+        else if (rand < 0.75 && hasSyn) type = 'synonym'; 
+        else if (rand < 0.85 && hasAnt) type = 'antonym'; 
+        else if (structures.length > 0) type = 'structure'; 
+        else type = 'en_vi'; 
+        
+        // 1. NẾU QUAY TRÚNG DẠNG ĐỤC LỖ (ĐIỀN TỪ)
+        if (type === 'fill_blank' && hasCloze) {
+            targetItem = getSmartRandomWord(clozeItems);
+            let matchBlank = targetItem.en.match(/\[(.*?)\]/);
+            correctAnswer = matchBlank[1].trim(); // Đáp án đúng là chữ trong ngoặc
+            
+            // Hiện câu hỏi: depend _______ (Nghĩa: phụ thuộc vào)
+            questionText = `Điền từ:\n"${targetItem.en.replace(/\[.*?\]/, '_______')}"\n(Nghĩa: ${targetItem.vi})`; 
+            
+            optionsArr = [correctAnswer];
+            const prepPool = ['in', 'on', 'at', 'about', 'for', 'with', 'to', 'of', 'from', 'up', 'down', 'by', 'into', 'over', 'out', 'off', 'away'];
+            
+            // Thuật toán nhiễu thông minh (Giới từ vs Từ thường)
+            if (prepPool.includes(correctAnswer.toLowerCase())) {
+                let available = prepPool.filter(p => p !== correctAnswer.toLowerCase());
+                available.sort(() => 0.5 - Math.random());
+                optionsArr.push(...available.slice(0, 3));
+            } else {
+                let otherWords = playingVocabPool.filter(w => w !== targetItem).map(w => w.en.replace(/\[|\]/g, '').trim());
+                otherWords.sort(() => 0.5 - Math.random());
+                optionsArr.push(...otherWords.slice(0, 3));
+            }
+            hint = "ĐIỀN TỪ"; valid = true;
+        } 
+        // 2. NẾU LÀ CẤU TRÚC
+        else if (type === 'structure' && structures.length > 0) {
+            targetItem = getSmartRandomWord(structures); 
+            questionText = `Cấu trúc nào có nghĩa là: "${targetItem.vi}"?`; 
+            correctAnswer = targetItem.en.replace(/\[|\]/g, ''); // [FIX] Xóa ngoặc vuông
+            let pool = structures.length >= 4 ? structures : playingVocabPool; 
+            optionsArr = [correctAnswer, ...getRandomItems(pool, 3, targetItem).map(i => i.en.replace(/\[|\]/g, ''))]; 
+            hint = "CẤU TRÚC"; valid = true;
+        } 
+        // 3. CÁC DẠNG CÒN LẠI (TỪ VỰNG BÌNH THƯỜNG)
+        else if (words.length > 0) {
+            let validWords = words; 
+            if (type === 'synonym') validWords = words.filter(w => w.syn && w.syn !== '-'); 
+            if (type === 'antonym') validWords = words.filter(w => w.ant && w.ant !== '-'); 
+            if (validWords.length === 0) { type = 'en_vi'; validWords = words; }
             targetItem = getSmartRandomWord(validWords);
             
-            if (type === 'en_vi') { questionText = `Nghĩa của từ "${targetItem.en}" ${targetItem.pos} là gì?`; correctAnswer = targetItem.vi; optionsArr = [correctAnswer, ...getRandomItems(playingVocabPool, 3, targetItem).map(i => i.vi)]; hint = "TỪ VỰNG"; valid = true; } 
-            else if (type === 'vi_en') { questionText = `Từ nào có nghĩa là: "${targetItem.vi}"?`; correctAnswer = targetItem.en; optionsArr = [correctAnswer, ...getRandomItems(playingVocabPool, 3, targetItem).map(i => i.en)]; hint = "TỪ VỰNG"; valid = true; } 
+            // [FIX] Thêm hàm .replace(/\[|\]/g, '') vào tất cả biến hiển thị để giấu dấu ngoặc vuông nếu có
+            if (type === 'en_vi') { 
+                questionText = `Nghĩa của từ "${targetItem.en.replace(/\[|\]/g, '')}" ${targetItem.pos} là gì?`; 
+                correctAnswer = targetItem.vi; 
+                optionsArr = [correctAnswer, ...getRandomItems(playingVocabPool, 3, targetItem).map(i => i.vi)]; 
+                hint = "TỪ VỰNG"; valid = true; 
+            } 
+            else if (type === 'vi_en') { 
+                questionText = `Từ nào có nghĩa là: "${targetItem.vi}"?`; 
+                correctAnswer = targetItem.en.replace(/\[|\]/g, ''); 
+                optionsArr = [correctAnswer, ...getRandomItems(playingVocabPool, 3, targetItem).map(i => i.en.replace(/\[|\]/g, ''))]; 
+                hint = "TỪ VỰNG"; valid = true; 
+            } 
             else if (type === 'synonym' && targetItem.syn) { 
-                questionText = `Từ nào ĐỒNG NGHĨA (Synonym) với "${targetItem.en}"?`; 
+                questionText = `Từ nào ĐỒNG NGHĨA (Synonym) với "${targetItem.en.replace(/\[|\]/g, '')}"?`; 
                 let syns = targetItem.syn.split(','); 
                 let chosenSyn = syns[Math.floor(Math.random() * syns.length)].trim();
-                // [ĐÃ FIX]: Tách tiếng Anh làm đáp án, giữ tiếng Việt làm giải thích
                 correctAnswer = chosenSyn.includes(':') ? chosenSyn.split(':')[0].trim() : chosenSyn; 
                 targetItem.tempExtraVi = chosenSyn.includes(':') ? chosenSyn.split(':')[1].trim() : "???";
-                optionsArr = [correctAnswer, ...getRandomItems(playingVocabPool, 3, targetItem).map(i => i.en)]; 
+                optionsArr = [correctAnswer, ...getRandomItems(playingVocabPool, 3, targetItem).map(i => i.en.replace(/\[|\]/g, ''))]; 
                 hint = "ĐỒNG NGHĨA"; valid = true; 
             } 
             else if (type === 'antonym' && targetItem.ant) { 
-                questionText = `Từ nào TRÁI NGHĨA (Antonym) với "${targetItem.en}"?`; 
+                questionText = `Từ nào TRÁI NGHĨA (Antonym) với "${targetItem.en.replace(/\[|\]/g, '')}"?`; 
                 let ants = targetItem.ant.split(','); 
                 let chosenAnt = ants[Math.floor(Math.random() * ants.length)].trim();
-                // [ĐÃ FIX]: Tách tiếng Anh làm đáp án, giữ tiếng Việt làm giải thích
                 correctAnswer = chosenAnt.includes(':') ? chosenAnt.split(':')[0].trim() : chosenAnt; 
                 targetItem.tempExtraVi = chosenAnt.includes(':') ? chosenAnt.split(':')[1].trim() : "???";
-                optionsArr = [correctAnswer, ...getRandomItems(playingVocabPool, 3, targetItem).map(i => i.en)]; 
+                optionsArr = [correctAnswer, ...getRandomItems(playingVocabPool, 3, targetItem).map(i => i.en.replace(/\[|\]/g, ''))]; 
                 hint = "TRÁI NGHĨA"; valid = true; 
             }
         }
     }
+    
     vCurrentQuestion = { item: targetItem, type, correct: correctAnswer }; 
     optionsArr = [...new Set(optionsArr)]; 
     while(optionsArr.length < 4) optionsArr.push("Đáp án " + Math.random().toString(36).substr(2,5)); 
@@ -2528,10 +2585,11 @@ function generateVocabQuestion() {
         optsContainer.appendChild(btn); 
     });
 
-    // Phát âm theo Tùy chọn (Chỉ đọc từ Tiếng Anh nếu là dạng câu hỏi en_vi)
-    if (vSettings.autoTTS && type === 'en_vi') {
+    // Phát âm theo Tùy chọn (Chỉ đọc từ Tiếng Anh nếu là dạng câu hỏi en_vi hoặc đục lỗ)
+    if (vSettings.autoTTS && (type === 'en_vi' || type === 'fill_blank')) {
         try {
-            const msg = new SpeechSynthesisUtterance(targetItem.en);
+            // [MỚI] Loại bỏ hoàn toàn dấu ngoặc vuông khi AI đọc bài
+            const msg = new SpeechSynthesisUtterance(targetItem.en.replace(/\[|\]/g, ''));
             msg.lang = 'en-US'; msg.rate = 0.9;
             window.speechSynthesis.speak(msg);
         } catch(e) {}
@@ -2609,7 +2667,6 @@ function handleVocabAnswer(btnEl, selectedOpt) {
         }
 
         updateVocabUI(); 
-        // Đã xóa hàm setTimeout ở đây để game không tự động lướt qua câu mới
     } 
     else { 
         currentItem.wrongCount = (currentItem.wrongCount || 0) + 1;
@@ -2672,13 +2729,22 @@ function showVocabExplanation(isCorrect, isTimeout = false) {
     let posHtml = item.pos ? `<span style="color: #0284c7; font-size: 14px; font-weight: bold;">${item.pos}</span>` : '';
     let synHtml = item.syn && item.syn !== '-' ? `<div style="font-size: 13px; color: #047857; margin-top: 4px;"><strong>Đồng nghĩa:</strong> ${item.syn}</div>` : '';
     let antHtml = item.ant && item.ant !== '-' ? `<div style="font-size: 13px; color: #be123c; margin-top: 4px;"><strong>Trái nghĩa:</strong> ${item.ant}</div>` : '';
-    // [MỚI]: Nếu có ghi chú, hiển thị một khối nghiêng mờ tinh tế phân tách bên dưới
     let noteHtml = item.note ? `<div style="font-size: 13.5px; color: #555; margin-top: 8px; padding-top: 8px; border-top: 1px dashed rgba(0,0,0,0.08); font-style: italic; line-height: 1.4;">💡 <strong>Ghi chú giáo viên:</strong> ${item.note}</div>` : '';
+
+    // [MỚI - ĐÃ FIX]: Xử lý hiển thị ngoặc vuông cho đẹp
+    let displayEn = item.en;
+    if (vCurrentQuestion.type === 'fill_blank') {
+        // Biến depend [on] thành depend on (on được gạch chân và tô xanh)
+        displayEn = item.en.replace(/\[(.*?)\]/g, '<u style="color: #16a34a; font-weight: 900;">$1</u>');
+    } else {
+        // Xóa ngoặc vuông nếu đang chơi dạng thường (trắc nghiệm nghĩa)
+        displayEn = item.en.replace(/\[|\]/g, '');
+    }
 
     let mainWordHtml = `
         <div style="background: rgba(255,255,255,0.6); padding: 12px; border-radius: 12px; border: 1px solid rgba(0,0,0,0.05); margin-bottom: 10px; text-align: left;">
             <div style="font-size: 18px; color: #1f2937; font-weight: 900; margin-bottom: 4px;">
-                ${item.en} ${posHtml} ${ipaHtml}
+                ${displayEn} ${posHtml} ${ipaHtml}
             </div>
             <div style="font-size: 15px; color: #374151;"><strong>Nghĩa:</strong> ${item.vi}</div>
             ${synHtml}
@@ -2702,14 +2768,36 @@ function showVocabExplanation(isCorrect, isTimeout = false) {
 
             let isOptCorrect = optText === vCurrentQuestion.correct;
 
-            // [ĐÃ FIX]: Nếu là đáp án đúng của câu Đồng/Trái nghĩa, lấy nghĩa Tiếng Việt đã cắt lúc nãy ra dùng
+            // Xử lý từ đồng nghĩa/trái nghĩa
             if (isOptCorrect && (vCurrentQuestion.type === 'synonym' || vCurrentQuestion.type === 'antonym')) {
                 wordVi = item.tempExtraVi || "???";
-            } else {
-                // Tự động quét Kho dữ liệu (db) để tra nghĩa của các đáp án nhiễu
-                let foundWord = db.Vocabulary.find(v => v.en === optText || v.vi === optText);
+            } 
+            // [MỚI - ĐÃ FIX]: XỬ LÝ PHRASAL VERBS CHO DẠNG ĐỤC LỖ
+            else if (vCurrentQuestion.type === 'fill_blank') {
+                let baseWord = item.en.replace(/\[.*?\]/, '').trim(); // VD: lấy chữ "go" từ "go [on]"
+                let combinedStr = baseWord + ' ' + optText; // Thử ghép "go" + "off"
+                
+                // Tra xem "go off" có trong kho từ vựng không
+                let foundCombined = db.Vocabulary.find(v => v.en.replace(/\[|\]/g, '').toLowerCase() === combinedStr.toLowerCase());
+                if (foundCombined) {
+                    wordEn = combinedStr; // Đổi chữ hiển thị thành "go off"
+                    wordVi = isOptCorrect ? "Đáp án chính xác" : foundCombined.vi; // Lấy nghĩa của "go off"
+                } else {
+                    // Nếu không có cụm đó, tìm xem từ đơn lẻ "off" có nghĩa không
+                    let foundSingle = db.Vocabulary.find(v => v.en.replace(/\[|\]/g, '').toLowerCase() === optText.toLowerCase());
+                    if (foundSingle) {
+                        wordVi = foundSingle.vi;
+                    } else {
+                        wordVi = isOptCorrect ? "Từ điền chính xác" : "Không phù hợp ngữ cảnh";
+                    }
+                }
+            } 
+            // Dạng bình thường (En-Vi, Vi-En...)
+            else {
+                // Thêm replace để lọc ngoặc vuông khi tra nghĩa nhiễu
+                let foundWord = db.Vocabulary.find(v => v.en.replace(/\[|\]/g, '') === optText || v.vi === optText);
                 if (foundWord) {
-                    wordEn = foundWord.en;
+                    wordEn = foundWord.en.replace(/\[|\]/g, '');
                     wordVi = foundWord.vi;
                 }
             }
@@ -2738,9 +2826,7 @@ function showVocabExplanation(isCorrect, isTimeout = false) {
 
     content.innerHTML = html;
     
-// MA THUẬT CSS: Tấm khiên "Bất tử" (Dùng translate3d và bỏ dìm móng)
-    // ---- BẮT ĐẦU DÁN ĐÈ TỪ ĐÂY ĐẾN HẾT HÀM ----
-    
+    // MA THUẬT CSS: Tấm khiên "Bất tử" (Dùng translate3d và bỏ dìm móng)
     // ĐƯA VỀ GIAO DIỆN KHỐI BÌNH THƯỜNG (KHÔNG POPUP CỐ ĐỊNH NỮA)
     expDiv.style.cssText = `
         background: ${bgColor};
