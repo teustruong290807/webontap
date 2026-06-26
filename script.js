@@ -1221,55 +1221,46 @@ function isQuestionAnswered(idx) {
 /* ==========================================
    BỘ CÔNG CỤ HIỆU ỨNG & ÂM THANH (ĐÃ FIX LỖI TỊT ÂM)
 ========================================== */
-let vAudioCtx = null;
-function getAudioCtx() {
-    if (!vAudioCtx) { vAudioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
-    if (vAudioCtx.state === 'suspended') { vAudioCtx.resume(); }
-    return vAudioCtx;
-}
+/* ==========================================
+   BỘ CÔNG CỤ HIỆU ỨNG & ÂM THANH (BẢN MP3 HIỆN ĐẠI)
+========================================== */
+// Khởi tạo sẵn các file âm thanh vào bộ nhớ đệm để không bị lag khi lướt câu hỏi
+const sfxCorrect = new Audio('https://od.lk/s/OTFfMjg3MTY0NzVf/correct-ding.mp3');
+const sfxWrong = new Audio('https://od.lk/s/OTFfMjg3MTY0NzZf/wrong-buzzer.mp3');
+const sfxCombo = new Audio('https://od.lk/s/OTFfMjg3MTY0Nzdf/level-up.mp3');
+
+// Chỉnh âm lượng (0.0 đến 1.0)
+sfxCorrect.volume = 0.7;
+sfxWrong.volume = 0.5;
+sfxCombo.volume = 0.8;
 
 function playCorrectSound() {
     try {
-        const ctx = getAudioCtx();
-        const osc = ctx.createOscillator(); 
-        const gainNode = ctx.createGain();
-        
-        // Âm thanh đúng: Tần số trầm ấm hơn, ngân dài tạo độ vang nhẹ
-        osc.type = 'sine'; 
-        osc.frequency.setValueAtTime(500, ctx.currentTime); 
-        osc.frequency.exponentialRampToValueAtTime(700, ctx.currentTime + 0.1); 
-        
-        gainNode.gain.setValueAtTime(0.3, ctx.currentTime); 
-        // Kéo dài thời gian release từ 0.3 lên 1.0 giây để tạo tiếng vang (echo)
-        gainNode.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 1.0); 
-        
-        osc.connect(gainNode); 
-        gainNode.connect(ctx.destination);
-        osc.start(); 
-        osc.stop(ctx.currentTime + 1.0);
-    } catch (e) {}
+        sfxCorrect.currentTime = 0; // Tua lại từ đầu để phát liên tục không bị kẹt
+        sfxCorrect.play();
+    } catch (e) { console.log("Lỗi phát âm thanh đúng"); }
 }
 
 function playErrorSound() {
     try {
-        const ctx = getAudioCtx();
-        const osc = ctx.createOscillator(); 
-        const gainNode = ctx.createGain();
-        // Đổi sang sóng triangle và tần số cao hơn để dễ nghe trên loa điện thoại
-        osc.type = 'triangle'; 
-        osc.frequency.setValueAtTime(300, ctx.currentTime); 
-        osc.frequency.exponentialRampToValueAtTime(100, ctx.currentTime + 0.3);
-        gainNode.gain.setValueAtTime(0.2, ctx.currentTime); 
-        gainNode.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.3);
-        osc.connect(gainNode); gainNode.connect(ctx.destination);
-        osc.start(); osc.stop(ctx.currentTime + 0.3);
+        sfxWrong.currentTime = 0;
+        sfxWrong.play();
+    } catch (e) { console.log("Lỗi phát âm thanh sai"); }
+}
+
+function playComboSound(streakCount) {
+    try {
+        // Nếu đạt chuỗi 3, 6, 9... thì phát âm thanh ăn combo đặc biệt
+        if (streakCount > 0 && streakCount % 3 === 0) {
+            sfxCombo.currentTime = 0;
+            sfxCombo.play();
+        } else {
+            playCorrectSound();
+        }
     } catch (e) {}
 }
 
-// Bỏ tính năng đẩy cao độ âm thanh (Pitch up), giờ combo cũng sẽ phát âm thanh mượt mà như bình thường
-function playComboSound(streakCount) {
-    playCorrectSound();
-}
+// GIỮ NGUYÊN HÀM HIỆU ỨNG BAY ĐIỂM BÊN DƯỚI:
 function showFloatingPoints(element, points) {
     const rect = element.getBoundingClientRect(); const pt = document.createElement('div');
     pt.className = 'floating-points'; pt.innerText = `+${points}`;
