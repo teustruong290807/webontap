@@ -1872,7 +1872,6 @@ function openVocabManage() {
 }
 
 function saveNewVocab() {
-    // --- 1. HỆ THỐNG KIỂM TRA AN NINH MẬT KHẨU ---
     const topic = document.getElementById('vocab-topic-input').value.trim() || 'Chung';
     const passInput = document.getElementById('vocab-topic-pass') ? document.getElementById('vocab-topic-pass').value.trim() : '0';
     
@@ -1887,24 +1886,24 @@ function saveNewVocab() {
         db.TopicPasswords[topic] = passInput || '0';
     }
 
-    // --- 2. THU THẬP DỮ LIỆU TỪ FORM (CÓ GHI CHÚ MỚI) ---
     let level = document.getElementById('vocab-level-input').value;
     let type = document.getElementById('vocab-type-input').value;
+    let lang = document.getElementById('vocab-lang-input').value; // <-- THÊM DÒNG NÀY ĐỂ ĐỌC NGÔN NGỮ ĐƯỢC CHỌN
     let en = document.getElementById('vocab-en-input').value.trim();
     let vi = document.getElementById('vocab-vi-input').value.trim();
     let ipa = document.getElementById('vocab-ipa-input').value.trim();
     let pos = document.getElementById('vocab-pos-input').value.trim();
     let syn = document.getElementById('vocab-syn-input').value.trim();
     let ant = document.getElementById('vocab-ant-input') ? document.getElementById('vocab-ant-input').value.trim() : '';
-    let note = document.getElementById('vocab-note-input') ? document.getElementById('vocab-note-input').value.trim() : ''; // [MỚI]
+    let note = document.getElementById('vocab-note-input') ? document.getElementById('vocab-note-input').value.trim() : ''; 
 
     if (!en || !vi) { alert("⚠️ Vui lòng nhập ít nhất Tiếng Anh và Tiếng Việt!"); return; }
 
-    // Đẩy từ vựng kèm ghi chú lên đầu danh sách
     db.Vocabulary.unshift({ 
         id: Date.now().toString(),
         level: level === 'None' ? '' : level,
         type: type, 
+        lang: lang, // <-- GHI NHẬN BIẾN NGÔN NGỮ VÀO ĐỐI TƯỢNG TỪ VỰNG
         topic: topic, 
         en: en, 
         ipa: ipa, 
@@ -1912,7 +1911,7 @@ function saveNewVocab() {
         vi: vi, 
         syn: syn, 
         ant: ant,
-        note: note, // [MỚI THÊM THUỘC TÍNH NÀY]
+        note: note,
         correctCount: 0, 
         wrongCount: 0,
         lastPlayed: Date.now()
@@ -2016,6 +2015,7 @@ function saveBulkVocab() {
         alert("⚠️ Vui lòng dán dữ liệu vào ô trống!");
         return;
     }
+    let lang = document.getElementById('vocab-lang-input').value;
 
     const lines = inputData.split('\n');
     let successCount = 0;
@@ -2082,6 +2082,7 @@ function saveBulkVocab() {
             id: Date.now().toString() + Math.random().toString(36).substr(2, 5), // Tạo ID duy nhất tránh trùng lặp
             level: level,
             type: type,
+            lang: lang,
             topic: topic,
             en: en,
             ipa: ipa,
@@ -2585,12 +2586,16 @@ function generateVocabQuestion() {
         optsContainer.appendChild(btn); 
     });
 
-    // Phát âm theo Tùy chọn (Chỉ đọc từ Tiếng Anh nếu là dạng câu hỏi en_vi hoặc đục lỗ)
+   // Phát âm theo Tùy chọn (Hỗ trợ đa ngôn ngữ)
     if (vSettings.autoTTS && (type === 'en_vi' || type === 'fill_blank')) {
         try {
+            window.speechSynthesis.cancel(); // Xóa giọng đọc cũ đang chờ (nếu có) để tránh bị lag
             // [MỚI] Loại bỏ hoàn toàn dấu ngoặc vuông khi AI đọc bài
             const msg = new SpeechSynthesisUtterance(targetItem.en.replace(/\[|\]/g, ''));
-            msg.lang = 'en-US'; msg.rate = 0.9;
+            
+            // Đọc theo ngôn ngữ đã lưu của từ, nếu không có thì mặc định tiếng Anh
+            msg.lang = targetItem.lang || 'en-US'; 
+            msg.rate = 0.9;
             window.speechSynthesis.speak(msg);
         } catch(e) {}
     }
@@ -5312,13 +5317,13 @@ function updateFlashcardContent() {
 }
 
 function playFlashcardTTS(event) {
-    if (event) event.stopPropagation(); // Ngăn chặn sự kiện nổi bọt gây lật thẻ ngoài ý muốn
+    if (event) event.stopPropagation(); 
     const word = fcWords[fcCurrentIndex];
     if (!word) return;
     try {
         window.speechSynthesis.cancel(); 
         const msg = new SpeechSynthesisUtterance(word.en);
-        msg.lang = 'en-US'; 
+        msg.lang = word.lang || 'en-US'; // <-- ĐỔI TỪ GÁN CỨNG 'en-US' THÀNH ĐỘNG THEO TỪNG TỪ CỦA THẺ
         msg.rate = 0.85;
         window.speechSynthesis.speak(msg);
     } catch(e) {}
