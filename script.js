@@ -1216,51 +1216,58 @@ function isQuestionAnswered(idx) {
 }
 
 /* ==========================================
-   7. LOGIC CHẤM ĐIỂM & RENDER KẾT QUẢ TẤT CẢ CÂU
+   BỘ CÔNG CỤ HIỆU ỨNG & ÂM THANH (BẢN MP3 CHỐNG LỖI)
 ========================================== */
-/* ==========================================
-   BỘ CÔNG CỤ HIỆU ỨNG & ÂM THANH (ĐÃ FIX LỖI TỊT ÂM)
-========================================== */
-/* ==========================================
-   BỘ CÔNG CỤ HIỆU ỨNG & ÂM THANH (BẢN MP3 HIỆN ĐẠI)
-========================================== */
-// Khởi tạo sẵn các file âm thanh vào bộ nhớ đệm để không bị lag khi lướt câu hỏi
 const sfxCorrect = new Audio('correct.mp3');
 const sfxWrong = new Audio('wrong.mp3');
 const sfxCombo = new Audio('combo.mp3');
 
-// Chỉnh âm lượng (0.0 đến 1.0)
 sfxCorrect.volume = 0.7;
 sfxWrong.volume = 0.5;
 sfxCombo.volume = 0.8;
 
 function playCorrectSound() {
     try {
-        sfxCorrect.currentTime = 0; // Tua lại từ đầu để phát liên tục không bị kẹt
-        sfxCorrect.play();
-    } catch (e) { console.log("Lỗi phát âm thanh đúng"); }
+        sfxCorrect.currentTime = 0;
+        let playPromise = sfxCorrect.play();
+        
+        // Bắt lỗi êm ái nếu trình duyệt chặn tự động phát
+        if (playPromise !== undefined) {
+            playPromise.catch(error => {
+                console.log("🔇 Trình duyệt tạm chặn âm thanh vì người dùng chưa tương tác với trang.");
+            });
+        }
+    } catch (e) {}
 }
 
 function playErrorSound() {
     try {
         sfxWrong.currentTime = 0;
-        sfxWrong.play();
-    } catch (e) { console.log("Lỗi phát âm thanh sai"); }
+        let playPromise = sfxWrong.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(error => {
+                console.log("🔇 Trình duyệt tạm chặn âm thanh sai.");
+            });
+        }
+    } catch (e) {}
 }
 
 function playComboSound(streakCount) {
     try {
-        // Nếu đạt chuỗi 3, 6, 9... thì phát âm thanh ăn combo đặc biệt
         if (streakCount > 0 && streakCount % 3 === 0) {
             sfxCombo.currentTime = 0;
-            sfxCombo.play();
+            let playPromise = sfxCombo.play();
+            if (playPromise !== undefined) {
+                playPromise.catch(error => {
+                    console.log("🔇 Trình duyệt tạm chặn âm thanh combo.");
+                });
+            }
         } else {
             playCorrectSound();
         }
     } catch (e) {}
 }
 
-// GIỮ NGUYÊN HÀM HIỆU ỨNG BAY ĐIỂM BÊN DƯỚI:
 function showFloatingPoints(element, points) {
     const rect = element.getBoundingClientRect(); const pt = document.createElement('div');
     pt.className = 'floating-points'; pt.innerText = `+${points}`;
