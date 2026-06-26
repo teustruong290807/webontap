@@ -1225,9 +1225,9 @@ function isQuestionAnswered(idx) {
    BỘ CÔNG CỤ HIỆU ỨNG & ÂM THANH (BẢN MP3 HIỆN ĐẠI)
 ========================================== */
 // Khởi tạo sẵn các file âm thanh vào bộ nhớ đệm để không bị lag khi lướt câu hỏi
-const sfxCorrect = new Audio('https://od.lk/s/OTFfMjg3MTY0NzVf/correct-ding.mp3');
-const sfxWrong = new Audio('https://od.lk/s/OTFfMjg3MTY0NzZf/wrong-buzzer.mp3');
-const sfxCombo = new Audio('https://od.lk/s/OTFfMjg3MTY0Nzdf/level-up.mp3');
+const sfxCorrect = new Audio('correct.mp3');
+const sfxWrong = new Audio('wrong.mp3');
+const sfxCombo = new Audio('combo.mp3');
 
 // Chỉnh âm lượng (0.0 đến 1.0)
 sfxCorrect.volume = 0.7;
